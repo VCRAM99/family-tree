@@ -1,24 +1,43 @@
-import Link from "next/link";
+import { Suspense } from "react";
 
-import { Tooltip } from "@/components/tooltip";
+import { TreeExperience } from "@/components/tree/tree-experience";
+import type { PersonField } from "@/lib/domain";
+import { PERSON_FIELDS } from "@/lib/domain";
+import { parseCustomFieldDefs } from "@/lib/validation";
+import { getTreeRole } from "@/lib/server/authz";
 import { requireUser } from "@/lib/server/session";
+import { getTreeGraph } from "@/lib/server/tree-graph";
 import { readTree } from "@/lib/server/trees";
+import { readViewerIdentity } from "@/lib/server/viewer-identity";
+import { defaultPersonId } from "@/lib/family-graph";
 
-export default async function TreePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function TreePage({ params, searchParams }: PageProps<"/tree/[id]">) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const user = await requireUser();
-  const tree = await readTree(user.id, id);
+  const [tree, graph, identity, role] = await Promise.all([
+    readTree(user.id, id),
+    getTreeGraph(id, user.id),
+    readViewerIdentity(user.id, id),
+    getTreeRole(user.id, id),
+  ]);
+  const requested = typeof query.person === "string" ? query.person : null;
+  const initialPersonId = defaultPersonId(graph, identity?.personId ?? null, requested);
+  const visibleFields = tree.visibleFields.filter((field): field is PersonField => (PERSON_FIELDS as readonly string[]).includes(field));
 
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-3xl flex-col justify-center px-6 pb-24">
-      <p className="text-xs tracking-[0.22em] text-muted uppercase">Tree</p>
-      <h1 className="mt-3 font-display text-6xl tracking-tight">{tree.name}</h1>
-      <p className="mt-6 max-w-md text-lg leading-relaxed text-muted">Tree view coming in prompt 3.</p>
-      <Tooltip content="Open sharing, fields, and theme" side="bottom" className="mt-8">
-        <Link href={`/tree/${tree.id}/settings`} className="inline-flex h-11 items-center rounded-full border border-border px-5 text-sm">
-          Settings
-        </Link>
-      </Tooltip>
-    </main>
+    <Suspense>
+      <TreeExperience
+        id={tree.id}
+        name={tree.name}
+        photosEnabled={tree.photosEnabled}
+        socialsEnabled={tree.socialsEnabled}
+        customFieldDefs={parseCustomFieldDefs(tree.customFieldDefs)}
+        canEdit={role === "owner" || role === "admin"}
+        visibleFields={visibleFields}
+        viewerPersonId={identity?.personId ?? null}
+        initialPersonId={initialPersonId}
+        graph={graph}
+      />
+    </Suspense>
   );
 }

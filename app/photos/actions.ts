@@ -1,7 +1,7 @@
 "use server";
 
 import { actionError } from "@/lib/server/errors";
-import { savePersonPhoto } from "@/lib/server/photos";
+import { removePersonPhoto, savePersonPhoto } from "@/lib/server/photos";
 import { requireUser } from "@/lib/server/session";
 
 export async function uploadPersonPhoto(personId: string, formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -11,6 +11,16 @@ export async function uploadPersonPhoto(personId: string, formData: FormData): P
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     await savePersonPhoto(user.id, personId, bytes);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: actionError(error) };
+  }
+}
+
+export async function removePersonPhotoAction(personId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  try {
+    await removePersonPhoto(user.id, personId);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: actionError(error) };

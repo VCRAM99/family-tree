@@ -201,6 +201,7 @@ export async function updateTreeSettings(userId: string | null, treeId: string, 
         hideLivingDetails: parsed.hideLivingDetails,
         visibleFields: uniqueVisibleFields(parsed.visibleFields),
         theme: parsed.theme,
+        customFieldDefs: parsed.customFieldDefs,
         updatedAt: new Date(),
       })
       .where(eq(trees.id, treeId))

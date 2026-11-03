@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/tooltip";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   tooltip: string;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "add";
   tooltipSide?: "top" | "bottom";
 };
 
@@ -13,6 +13,7 @@ const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
   secondary: "border border-border bg-surface text-text hover:bg-background",
   ghost: "text-muted hover:text-text",
   danger: "bg-danger text-surface hover:opacity-90",
+  add: "bg-add text-surface hover:opacity-90",
 };
 
 export function Button({

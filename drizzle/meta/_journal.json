@@ -15,6 +15,13 @@
       "when": 1793663481538,
       "tag": "0001_integrity_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793663482200,
+      "tag": "0002_placeholders",
+      "breakpoints": true
     }
   ]
 }

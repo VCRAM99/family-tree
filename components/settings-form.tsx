@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { checkPublicTagAction, regenerateShareCodeAction, saveSettingsAction } from "@/app/tree/[id]/settings/actions";
 import { Button } from "@/components/button";
 import { useThemePreview } from "@/components/theme-provider";
+import { MAX_NODE_EXTRA_LINES, NODE_EXTRA_FIELDS, type CustomFieldDef, type CustomFieldType } from "@/lib/domain";
 import { PERSON_FIELD_LABELS, PERSON_FIELDS, THEME_IDS, THEME_LABELS, type PersonField, type ThemeId } from "@/lib/themes";
 
 export type SettingsTree = {
@@ -20,6 +21,7 @@ export type SettingsTree = {
   hideLivingDetails: boolean;
   visibleFields: PersonField[];
   theme: ThemeId;
+  customFieldDefs: CustomFieldDef[];
   role: "owner" | "admin";
 };
 
@@ -51,6 +53,7 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
   const [hideLivingDetails, setHideLivingDetails] = useState(tree.hideLivingDetails);
   const [visibleFields, setVisibleFields] = useState<PersonField[]>(tree.visibleFields);
   const [theme, setTheme] = useState<ThemeId>(tree.theme);
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>(tree.customFieldDefs);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -75,8 +78,18 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
     return () => window.clearTimeout(handle);
   }, [isOwner, publicTag, tree.id, visibility]);
 
+  function updateCustom(key: string, patch: Partial<CustomFieldDef>) {
+    setCustomFieldDefs((current) => current.map((field) => (field.key === key ? { ...field, ...patch } : field)));
+  }
+
   function toggleField(field: PersonField) {
-    setVisibleFields((current) => (current.includes(field) ? current.filter((item) => item !== field) : [...current, field]));
+    setVisibleFields((current) => {
+      if (current.includes(field)) return current.filter((item) => item !== field);
+      const extra = NODE_EXTRA_FIELDS.includes(field as (typeof NODE_EXTRA_FIELDS)[number]);
+      const extraCount = current.filter((item) => NODE_EXTRA_FIELDS.includes(item as (typeof NODE_EXTRA_FIELDS)[number])).length;
+      if (extra && extraCount >= MAX_NODE_EXTRA_LINES) return current;
+      return [...current, field];
+    });
   }
 
   return (
@@ -98,6 +111,7 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
             hideLivingDetails,
             visibleFields,
             theme,
+            customFieldDefs,
           });
           if (result.error) setError(result.error);
           else setSaved(true);
@@ -203,7 +217,7 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
         <section className="mt-12">
           <h2 className="font-display text-3xl">Visible fields</h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-            These are the fields a later public view may show. Living-person details can still be withheld.
+            The tree card always shows the name and years. Choose at most two extra lines, such as a place or an occupation.
           </p>
           <ul className="mt-5 grid gap-2 sm:grid-cols-2">
             {PERSON_FIELDS.map((field) => (
@@ -219,6 +233,71 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="font-display text-3xl">Custom fields</h2>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+            Extra details that show on each person’s card. Text, date, or a list of choices.
+          </p>
+          <ul className="mt-5 flex flex-col gap-3">
+            {customFieldDefs.map((field) => (
+              <li key={field.key} className="grid gap-3 rounded-2xl border border-border bg-surface p-4 sm:grid-cols-[1fr_9rem_auto]">
+                <input
+                  aria-label="Field label"
+                  value={field.label}
+                  onChange={(event) => updateCustom(field.key, { label: event.target.value })}
+                  placeholder="Label"
+                  className="h-12 rounded-2xl border border-border bg-background px-4"
+                />
+                <select
+                  aria-label="Field type"
+                  value={field.type === "text" || field.type === "date" || field.type === "select" ? field.type : field.type}
+                  onChange={(event) => updateCustom(field.key, { type: event.target.value as CustomFieldType })}
+                  className="h-12 rounded-2xl border border-border bg-background px-3"
+                >
+                  <option value="text">Text</option>
+                  <option value="date">Date</option>
+                  <option value="select">Select</option>
+                  {field.type !== "text" && field.type !== "date" && field.type !== "select" ? (
+                    <option value={field.type}>{field.type}</option>
+                  ) : null}
+                </select>
+                <Button tooltip="Remove this custom field" variant="ghost" onClick={() => setCustomFieldDefs((current) => current.filter((item) => item.key !== field.key))}>
+                  Remove
+                </Button>
+                {field.type === "select" ? (
+                  <input
+                    aria-label="Choices"
+                    value={(field.options ?? []).join(", ")}
+                    placeholder="Choices, separated by commas"
+                    onChange={(event) =>
+                      updateCustom(field.key, {
+                        options: event.target.value
+                          .split(",")
+                          .map((option) => option.trim())
+                          .filter((option) => option.length > 0),
+                      })
+                    }
+                    className="h-12 rounded-2xl border border-border bg-background px-4 sm:col-span-3"
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <Button
+            tooltip="Add a custom field"
+            variant="secondary"
+            className="mt-4"
+            onClick={() =>
+              setCustomFieldDefs((current) => [
+                ...current,
+                { key: `field_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`, label: "", type: "text" },
+              ])
+            }
+          >
+            Add field
+          </Button>
         </section>
 
         {error ? <p className="mt-8 text-sm text-danger">{error}</p> : null}

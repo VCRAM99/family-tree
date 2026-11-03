@@ -2,6 +2,7 @@ import { SettingsForm, type SettingsTree } from "@/components/settings-form";
 import { isThemeId } from "@/lib/themes";
 import type { PersonField } from "@/lib/domain";
 import { PERSON_FIELDS } from "@/lib/domain";
+import { parseCustomFieldDefs } from "@/lib/validation";
 import { getTreeRole } from "@/lib/server/authz";
 import { requireUser } from "@/lib/server/session";
 import { readTree } from "@/lib/server/trees";
@@ -29,6 +30,7 @@ export default async function TreeSettingsPage({ params }: { params: Promise<{ i
     hideLivingDetails: tree.hideLivingDetails,
     visibleFields,
     theme: isThemeId(tree.theme) ? tree.theme : "system",
+    customFieldDefs: parseCustomFieldDefs(tree.customFieldDefs),
     role,
   };
 

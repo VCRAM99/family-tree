@@ -35,3 +35,10 @@ export async function readViewerIdentity(userId: string | null, treeId: string) 
     .limit(1);
   return row ?? null;
 }
+
+export async function clearViewerIdentity(userId: string | null, treeId: string) {
+  if (!userId) throw new AuthzError("Sign in to continue.", "unauthenticated");
+  await getDb()
+    .delete(viewerIdentities)
+    .where(and(eq(viewerIdentities.userId, userId), eq(viewerIdentities.treeId, treeId)));
+}

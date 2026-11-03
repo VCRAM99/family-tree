@@ -25,7 +25,25 @@ export function isUniqueViolation(error: unknown): boolean {
   return false;
 }
 
+export function errorText(error: unknown): string {
+  const parts: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    if ("message" in current && typeof current.message === "string") parts.push(current.message);
+    current = "cause" in current ? (current as { cause?: unknown }).cause : undefined;
+  }
+  if (error instanceof Error && !parts.includes(error.message)) parts.push(error.message);
+  return parts.join("\n");
+}
+
+export function isAncestryCycle(error: unknown): boolean {
+  return /ancestor/i.test(errorText(error));
+}
+
 export function actionError(error: unknown): string {
+  if (isAncestryCycle(error)) return "That would make someone their own ancestor";
   if (error instanceof AuthzError) return error.message;
   if (error instanceof ZodError) return error.issues[0]?.message ?? "Check the form and try again.";
   console.error(error);

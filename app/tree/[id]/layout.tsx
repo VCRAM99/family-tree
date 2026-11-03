@@ -20,10 +20,10 @@ export default async function TreeLayout({
   const theme = await getTreeTheme(id);
 
   return (
-    <>
+    <div className="flex h-dvh flex-col">
       <PublishTreeTheme theme={theme} />
       <TopBar user={user} />
-      {children}
-    </>
+      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+    </div>
   );
 }

@@ -150,6 +150,29 @@ body {
   outline-offset: 3px;
 }
 
+.react-flow__node,
+.react-flow__node:focus,
+.react-flow__node:focus-visible,
+.react-flow__node.selected {
+  outline: none;
+  box-shadow: none;
+}
+
+.react-flow__node:focus-visible .person-card,
+.person-card[data-selected="true"] {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
+}
+
+.react-flow__node {
+  overflow: visible;
+  transition: transform 480ms ease;
+}
+
+.react-flow,
+.react-flow__background {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -72,7 +72,9 @@ const timestamps = {
 };
 
 const defaultVisibleFields = sql.raw(
-  `ARRAY[${DEFAULT_VISIBLE_FIELDS.map((field) => `'${field}'`).join(",")}]::text[]`,
+  DEFAULT_VISIBLE_FIELDS.length > 0
+    ? `ARRAY[${DEFAULT_VISIBLE_FIELDS.map((field) => `'${field}'`).join(",")}]::text[]`
+    : `'{}'::text[]`,
 );
 
 export const trees = pgTable(
@@ -167,6 +169,7 @@ export const persons = pgTable(
     email: text("email"),
     instagram: text("instagram"),
     facebook: text("facebook"),
+    isPlaceholder: boolean("is_placeholder").notNull().default(false),
     customFields: jsonb("custom_fields").$type<CustomFieldValues>().notNull().default(sql`'{}'::jsonb`),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     ...timestamps,
