@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { actionError } from "@/lib/server/errors";
 import { requireUser } from "@/lib/server/session";
+import { respondToInvite } from "@/lib/server/invites";
 import { createTree, deleteTree, renameTree } from "@/lib/server/trees";
 
 export async function createTreeAction(formData: FormData): Promise<{ error: string } | void> {
@@ -38,6 +39,17 @@ export async function deleteTreeAction(treeId: string, confirmationName: string)
   const user = await requireUser();
   try {
     await deleteTree(user.id, treeId, confirmationName);
+    revalidatePath("/dashboard");
+    return {};
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+}
+
+export async function respondInviteAction(adminId: string, accept: boolean): Promise<{ error?: string }> {
+  const user = await requireUser();
+  try {
+    await respondToInvite(user.id, adminId, accept);
     revalidatePath("/dashboard");
     return {};
   } catch (error) {

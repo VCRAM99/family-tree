@@ -97,7 +97,8 @@ export function PersonCard({
             </>
           )}
 
-          {!editing && (life || age) ? (
+          {!editing && person.livingOnly ? <p className="mt-4 text-lg">Living</p> : null}
+          {!editing && !person.livingOnly && (life || age) ? (
             <p className="mt-4 text-lg">
               {life}
               {life && age ? <span className="text-muted"> · </span> : null}
@@ -119,6 +120,8 @@ export function PersonCard({
         </div>
       </div>
 
+      {person.livingOnly && !editing ? null : (
+      <>
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
         <SelectField
           label="Sex"
@@ -235,6 +238,8 @@ export function PersonCard({
           ) : null}
         </div>
       ) : null}
+      </>
+      )}
 
       {editing && !person.pending ? (
         <div className="mt-10">

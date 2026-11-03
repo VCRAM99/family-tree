@@ -18,6 +18,7 @@ import {
 } from "@/app/tree/[id]/actions";
 import { Button } from "@/components/button";
 import { FamilyColumn, type AddRole } from "@/components/tree/family-column";
+import { SuggestPanel } from "@/components/tree/suggest-panel";
 import { PersonCard } from "@/components/tree/person-card";
 import { TreeCanvas } from "@/components/tree/tree-canvas";
 import { TreeSearch } from "@/components/tree/tree-search";
@@ -55,6 +56,11 @@ export type TreeScreenData = {
   viewerPersonId: string | null;
   initialPersonId: string | null;
   graph: TreeGraph;
+  /** Public and unlisted viewers. Hides edit controls and uses this path for person links. */
+  basePath?: string;
+  publicMode?: boolean;
+  allowSuggestions?: boolean;
+  signedIn?: boolean;
 };
 
 export function TreeExperience(props: TreeScreenData) {
@@ -91,6 +97,7 @@ function TreeScreen(props: TreeScreenData) {
   const drafts = useRef(new Map<string, RelationInput>());
   const draftTouched = useRef(new Map<string, PersonPatch>());
 
+  const basePath = props.basePath ?? `/tree/${props.id}`;
   const requested = search.get("person");
   const [chosenId, setChosenId] = useState<string | null>(requested);
   const personId =
@@ -105,8 +112,8 @@ function TreeScreen(props: TreeScreenData) {
 
   useEffect(() => {
     if (search.get("person") || !personId) return;
-    writePersonUrl(props.id, personId, view, "replace");
-  }, [personId, props.id, search, view]);
+    writePersonUrl(basePath, personId, view, "replace");
+  }, [basePath, personId, props.id, search, view]);
 
   useEffect(() => {
     function onPop() {
@@ -135,10 +142,10 @@ function TreeScreen(props: TreeScreenData) {
         }
         setChosenId(id);
         const nextView = new URLSearchParams(window.location.search).get("view") === "tree" ? "tree" : "card";
-        writePersonUrl(props.id, id, nextView, "push");
+        writePersonUrl(basePath, id, nextView, "push");
       })();
     },
-    [personId, props.id, store],
+    [basePath, personId, store],
   );
 
   useEffect(() => {
@@ -193,7 +200,7 @@ function TreeScreen(props: TreeScreenData) {
       drafts.current.delete(key);
       drafts.current.delete(current.id);
       setChosenId(created.id);
-      writePersonUrl(props.id, created.id, "card", "replace");
+      writePersonUrl(basePath, created.id, "card", "replace");
       const fresh = findEditable(store.getState().graph, saved) ?? saved;
       const extra = carriedDraftPatch(fresh, draftTouched.current.get(key) ?? {});
       draftTouched.current.delete(key);
@@ -238,7 +245,7 @@ function TreeScreen(props: TreeScreenData) {
     setEditing(true);
     setDialog(null);
     setChosenId(id);
-    writePersonUrl(props.id, id, "card", "push");
+    writePersonUrl(basePath, id, "card", "push");
   }
 
   function beginAdd(role: AddRole, anchorId: string) {
@@ -273,6 +280,11 @@ function TreeScreen(props: TreeScreenData) {
 
   async function toggleMe() {
     if (!person || person.pending) return;
+    if (props.publicMode && !props.signedIn) {
+      const next = `${basePath}?${new URLSearchParams(search.toString()).toString()}`;
+      router.push(`/?next=${encodeURIComponent(next)}`);
+      return;
+    }
     const next = viewerId === person.id ? null : person.id;
     const previous = viewerId;
     setViewerId(next);
@@ -346,16 +358,18 @@ function TreeScreen(props: TreeScreenData) {
               const params = new URLSearchParams(search.toString());
               params.set("view", view === "tree" ? "card" : "tree");
               if (personId) params.set("person", personId);
-              router.push(`/tree/${props.id}?${params.toString()}`, { scroll: false });
+              router.push(`${basePath}?${params.toString()}`, { scroll: false });
             }}
           >
             {view === "tree" ? "Card" : "Tree view"}
           </Button>
-          <Tooltip content="Open sharing, fields, and theme" side="bottom">
-            <Link href={`/tree/${props.id}/settings`} className="inline-flex h-11 items-center rounded-full border border-border px-5 text-sm">
-              Settings
-            </Link>
-          </Tooltip>
+          {props.canEdit ? (
+            <Tooltip content="Open sharing, fields, and theme" side="bottom">
+              <Link href={`/tree/${props.id}/settings`} className="inline-flex h-11 items-center rounded-full border border-border px-5 text-sm">
+                Settings
+              </Link>
+            </Tooltip>
+          ) : null}
           {props.canEdit ? (
             <Button tooltip={editing ? "Leave edit mode" : "Edit people in this tree"} variant={editing ? "primary" : "secondary"} onClick={() => setEditing((value) => !value)}>
               {editing ? "View" : "Edit"}
@@ -392,7 +406,7 @@ function TreeScreen(props: TreeScreenData) {
               const params = new URLSearchParams(search.toString());
               params.set("view", "card");
               params.set("person", id);
-              router.push(`/tree/${props.id}?${params.toString()}`, { scroll: false });
+              router.push(`${basePath}?${params.toString()}`, { scroll: false });
             }}
             onAdd={beginAdd}
             onExitFocus={() => setFocused(false)}
@@ -425,7 +439,18 @@ function TreeScreen(props: TreeScreenData) {
                 });
               }}
             />
+            <div className="flex flex-col gap-8">
             {relationError ? <p className="text-sm text-danger">{relationError}</p> : null}
+            {props.publicMode && person && !person.pending ? (
+              <SuggestPanel
+                treeId={props.id}
+                personId={person.id}
+                allowSuggestions={Boolean(props.allowSuggestions)}
+                socialsEnabled={props.socialsEnabled}
+                signedIn={Boolean(props.signedIn)}
+                returnPath={`${basePath}?${search.toString()}`}
+              />
+            ) : null}
             <FamilyColumn
               personId={person.id}
               editing={editing && props.canEdit && !person.pending}
@@ -439,6 +464,7 @@ function TreeScreen(props: TreeScreenData) {
               onUnionDates={(unionId, patch) => void changeDates(unionId, patch)}
               onReorder={(unionId, direction) => void reorder(unionId, direction)}
             />
+            </div>
           </div>
         </LayoutGroup>
       ) : null}
@@ -671,11 +697,11 @@ function blankPerson(id: string, treeId: string, sex: Sex): GraphPerson {
   };
 }
 
-function writePersonUrl(treeId: string, personId: string, view: string, mode: "push" | "replace") {
+function writePersonUrl(basePath: string, personId: string, view: string, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search);
   params.set("person", personId);
   params.set("view", view);
-  const href = `/tree/${treeId}?${params.toString()}`;
+  const href = `${basePath}?${params.toString()}`;
   if (mode === "replace") window.history.replaceState(window.history.state, "", href);
   else window.history.pushState(window.history.state, "", href);
 }

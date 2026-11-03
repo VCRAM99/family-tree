@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 
 import { checkPublicTagAction, regenerateShareCodeAction, saveSettingsAction } from "@/app/tree/[id]/settings/actions";
+import { AdminManager, type AdminRow } from "@/components/admin-manager";
 import { Button } from "@/components/button";
 import { useThemePreview } from "@/components/theme-provider";
 import { MAX_NODE_EXTRA_LINES, NODE_EXTRA_FIELDS, type CustomFieldDef, type CustomFieldType } from "@/lib/domain";
@@ -19,6 +20,7 @@ export type SettingsTree = {
   socialsEnabled: boolean;
   photosEnabled: boolean;
   hideLivingDetails: boolean;
+  notifySuggestions: boolean;
   visibleFields: PersonField[];
   theme: ThemeId;
   customFieldDefs: CustomFieldDef[];
@@ -36,7 +38,7 @@ const swatch: Record<ThemeId, [string, string, string, string]> = {
   "sage-botanical": ["#eef2e6", "#243026", "#3e6f8a", "#a85d78"],
 };
 
-export function SettingsForm({ tree }: { tree: SettingsTree }) {
+export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins?: AdminRow[] }) {
   const setPreview = useThemePreview();
   const isOwner = tree.role === "owner";
   const [name, setName] = useState(tree.name);
@@ -51,6 +53,7 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
   const [socialsEnabled, setSocialsEnabled] = useState(tree.socialsEnabled);
   const [photosEnabled, setPhotosEnabled] = useState(tree.photosEnabled);
   const [hideLivingDetails, setHideLivingDetails] = useState(tree.hideLivingDetails);
+  const [notifySuggestions, setNotifySuggestions] = useState(tree.notifySuggestions);
   const [visibleFields, setVisibleFields] = useState<PersonField[]>(tree.visibleFields);
   const [theme, setTheme] = useState<ThemeId>(tree.theme);
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>(tree.customFieldDefs);
@@ -109,6 +112,7 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
             socialsEnabled,
             photosEnabled,
             hideLivingDetails,
+            notifySuggestions,
             visibleFields,
             theme,
             customFieldDefs,
@@ -212,7 +216,10 @@ export function SettingsForm({ tree }: { tree: SettingsTree }) {
           <Toggle label="Social links" tooltip="Show Instagram, Facebook, and similar fields when a viewer is allowed to see them" checked={socialsEnabled} onChange={setSocialsEnabled} />
           <Toggle label="Photos" tooltip="Allow photos on people in this tree" checked={photosEnabled} onChange={setPhotosEnabled} />
           <Toggle label="Hide living people’s details" tooltip="Keep contact and location details off public views of living people" checked={hideLivingDetails} onChange={setHideLivingDetails} />
+          <Toggle label="Email me about suggestions" tooltip="Send the owner an email when someone suggests a change" checked={notifySuggestions} onChange={setNotifySuggestions} />
         </section>
+
+        {isOwner ? <AdminManager treeId={tree.id} admins={admins} /> : null}
 
         <section className="mt-12">
           <h2 className="font-display text-3xl">Visible fields</h2>

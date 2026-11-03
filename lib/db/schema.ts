@@ -93,6 +93,7 @@ export const trees = pgTable(
     socialsEnabled: boolean("socials_enabled").notNull().default(false),
     photosEnabled: boolean("photos_enabled").notNull().default(false),
     hideLivingDetails: boolean("hide_living_details").notNull().default(true),
+    notifySuggestions: boolean("notify_suggestions").notNull().default(true),
     visibleFields: text("visible_fields").array().$type<PersonField[]>().notNull().default(defaultVisibleFields),
     theme: text("theme").notNull().default("system"),
     customFieldDefs: jsonb("custom_field_defs").$type<CustomFieldDef[]>().notNull().default(sql`'[]'::jsonb`),
@@ -299,6 +300,12 @@ export const suggestions = pgTable(
     }).onDelete("cascade"),
   ],
 );
+
+export const lookupBuckets = pgTable("lookup_buckets", {
+  id: text("id").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+});
 
 export const viewerIdentities = pgTable(
   "viewer_identities",

@@ -61,6 +61,19 @@ export const auth = betterAuth({
       "/send-verification-email": { window: 60, max: 3 },
     },
   },
+  databaseHooks: {
+    user: {
+      update: {
+        after: async (accountUser) => {
+          if (!accountUser.emailVerified) return;
+          const { claimPendingInvites } = await import("./invites");
+          await claimPendingInvites(accountUser.id).catch((error: unknown) => {
+            console.error("[invites] could not attach pending invites", error);
+          });
+        },
+      },
+    },
+  },
   plugins: [nextCookies()],
 });
 

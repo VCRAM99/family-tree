@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
+import { resolveTreeLookup, searchPublicTreesAction } from "@/app/view-actions";
 import { Button } from "@/components/button";
 import { classifyTreeLookup } from "@/lib/public-tag";
 
 export function TreeLookup() {
+  const router = useRouter();
   const [value, setValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [matches, setMatches] = useState<{ name: string; publicTag: string }[]>([]);
   const kind = value.trim() ? classifyTreeLookup(value) : null;
 
   return (
@@ -15,11 +19,11 @@ export function TreeLookup() {
       className="mt-10 border-t border-border pt-8"
       onSubmit={(event) => {
         event.preventDefault();
-        if (kind === "invalid" || !kind) {
-          setMessage("Enter an 8-character share code or a public tag.");
-          return;
-        }
-        setMessage("Opening a tree from a code or tag arrives in a later update. This field only checks the format for now.");
+        setMessage(null);
+        void resolveTreeLookup(value).then((result) => {
+          if (result.href) router.push(result.href);
+          else setMessage(result.error ?? "We couldn't find that tree.");
+        });
       }}
     >
       <p className="font-display text-3xl tracking-tight">View a family tree</p>
@@ -29,8 +33,14 @@ export function TreeLookup() {
         <input
           value={value}
           onChange={(event) => {
-            setValue(event.target.value);
+            const next = event.target.value;
+            setValue(next);
             setMessage(null);
+            if (classifyTreeLookup(next) === "share_code") {
+              setMatches([]);
+              return;
+            }
+            void searchPublicTreesAction(next).then(setMatches);
           }}
           autoCapitalize="characters"
           spellCheck={false}
@@ -39,8 +49,24 @@ export function TreeLookup() {
       </label>
       {kind === "share_code" ? <p className="mt-2 text-xs text-muted">Looks like a share code.</p> : null}
       {kind === "public_tag" ? <p className="mt-2 text-xs text-muted">Looks like a public tag.</p> : null}
+      {matches.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-1">
+          {matches.map((match) => (
+            <li key={match.publicTag}>
+              <button
+                type="button"
+                className="flex w-full items-baseline justify-between rounded-2xl px-3 py-2 text-left hover:bg-surface"
+                onClick={() => router.push(`/t/${match.publicTag}`)}
+              >
+                <span>{match.name}</span>
+                <span className="text-xs text-muted">{match.publicTag}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {message ? <p className="mt-3 text-sm leading-relaxed text-muted">{message}</p> : null}
-      <Button tooltip="Check the code or tag format" type="submit" variant="secondary" className="mt-4">
+      <Button tooltip="Open the tree for this code or public tag" type="submit" variant="secondary" className="mt-4">
         View tree
       </Button>
     </form>

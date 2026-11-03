@@ -22,7 +22,7 @@ import { toGraphLink, toGraphPerson, toGraphUnion } from "./graph-map";
 export type { LinkInput, NewPersonInput, PersonPatch, RelationInput } from "@/lib/person-edits";
 
 type Database = ReturnType<typeof getDb>;
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type WriteExecutor = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export type WriteResult = {
   person?: GraphPerson;
@@ -48,9 +48,15 @@ const textKeys = [
   "facebook",
 ] as const;
 
-export async function updatePerson(userId: string | null, treeId: string, personId: string, patch: PersonPatch): Promise<GraphPerson> {
-  await requireTreeAdmin(userId, treeId);
-  const db = getDb();
+export async function updatePerson(
+  userId: string | null,
+  treeId: string,
+  personId: string,
+  patch: PersonPatch,
+  executor?: WriteExecutor,
+): Promise<GraphPerson> {
+  await requireTreeAdmin(userId, treeId, executor);
+  const db = executor ?? getDb();
   const [existing] = await db.select().from(persons).where(and(eq(persons.id, personId), eq(persons.treeId, treeId))).limit(1);
   if (!existing) throw new AuthzError("That person is not in this tree.", "invalid");
 
@@ -126,14 +132,14 @@ export async function createPersonWithRelation(
   treeId: string,
   input: NewPersonInput,
   relation: RelationInput,
+  executor?: WriteExecutor,
 ): Promise<WriteResult> {
-  await requireTreeAdmin(userId, treeId);
+  await requireTreeAdmin(userId, treeId, executor);
   const firstName = input.firstName.trim();
   if (!firstName) throw new AuthzError("A first name is required.", "invalid");
   const sex: Sex = relation.kind === "father" ? "male" : relation.kind === "mother" ? "female" : (input.sex ?? "unknown");
 
-  try {
-    return await getDb().transaction(async (tx) => {
+  const run = async (tx: WriteExecutor) => {
       const plan = relation;
       const [person] = await tx
         .insert(persons)
@@ -171,7 +177,10 @@ export async function createPersonWithRelation(
           return { person: toGraphPerson(person), unions: [], ...linked };
         }
       }
-    });
+  };
+  try {
+    if (executor) return await run(executor);
+    return await getDb().transaction(run);
   } catch (error) {
     throw mapWriteError(error);
   }
@@ -336,13 +345,13 @@ function chooseNextPerson(graph: { persons: GraphPerson[]; parentLinks: GraphPar
   return graph.persons.find((person) => person.id !== personId && !person.isPlaceholder)?.id ?? null;
 }
 
-async function requirePerson(tx: Transaction, treeId: string, personId: string) {
+async function requirePerson(tx: WriteExecutor, treeId: string, personId: string) {
   const [row] = await tx.select({ id: persons.id }).from(persons).where(and(eq(persons.id, personId), eq(persons.treeId, treeId))).limit(1);
   if (!row) throw new AuthzError("That person is not in this tree.", "invalid");
 }
 
 async function insertLink(
-  tx: Transaction,
+  tx: WriteExecutor,
   value: { treeId: string; parentId: string; childId: string; kind: ParentKind; unionId: string | null },
 ): Promise<GraphParentLink> {
   if (value.parentId === value.childId) throw new AuthzError("A person cannot be their own parent.", "invalid");
@@ -351,7 +360,7 @@ async function insertLink(
   return toGraphLink(link);
 }
 
-async function insertUnion(tx: Transaction, treeId: string, personAId: string, personBId: string): Promise<GraphUnion> {
+async function insertUnion(tx: WriteExecutor, treeId: string, personAId: string, personBId: string): Promise<GraphUnion> {
   if (personAId === personBId) throw new AuthzError("A person cannot be their own spouse.", "invalid");
   const existing = await tx
     .select({ id: unions.id })
@@ -376,7 +385,7 @@ async function insertUnion(tx: Transaction, treeId: string, personAId: string, p
   return toGraphUnion(union);
 }
 
-async function nextSort(tx: Transaction, treeId: string, personId: string): Promise<number> {
+async function nextSort(tx: WriteExecutor, treeId: string, personId: string): Promise<number> {
   const rows = await tx
     .select({ sortOrder: unions.sortOrder })
     .from(unions)
@@ -385,7 +394,7 @@ async function nextSort(tx: Transaction, treeId: string, personId: string): Prom
 }
 
 async function attachParent(
-  tx: Transaction,
+  tx: WriteExecutor,
   treeId: string,
   parentId: string,
   childId: string,
@@ -452,7 +461,7 @@ async function attachParent(
 }
 
 async function replacePlaceholderParent(
-  tx: Transaction,
+  tx: WriteExecutor,
   treeId: string,
   childId: string,
   parentId: string,
@@ -487,7 +496,7 @@ async function replacePlaceholderParent(
   return { parentLinks: parentLinksOut, removedPersonIds };
 }
 
-async function findOrCreateUnion(tx: Transaction, treeId: string, personAId: string, personBId: string): Promise<{ union: GraphUnion; created: boolean }> {
+async function findOrCreateUnion(tx: WriteExecutor, treeId: string, personAId: string, personBId: string): Promise<{ union: GraphUnion; created: boolean }> {
   const existing = await tx
     .select()
     .from(unions)
@@ -506,7 +515,7 @@ async function findOrCreateUnion(tx: Transaction, treeId: string, personAId: str
   return { union: await insertUnion(tx, treeId, personAId, personBId), created: true };
 }
 
-async function linkChild(tx: Transaction, treeId: string, parentId: string, childId: string, unionId: string | null): Promise<GraphParentLink[]> {
+async function linkChild(tx: WriteExecutor, treeId: string, parentId: string, childId: string, unionId: string | null): Promise<GraphParentLink[]> {
   await requirePerson(tx, treeId, parentId);
   const parentIds = [parentId];
   if (unionId) {
@@ -525,7 +534,7 @@ async function linkChild(tx: Transaction, treeId: string, parentId: string, chil
 }
 
 async function linkSibling(
-  tx: Transaction,
+  tx: WriteExecutor,
   treeId: string,
   personId: string,
   siblingId: string,

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 
-import { createTreeAction, deleteTreeAction, renameTreeAction } from "@/app/dashboard/actions";
+import { createTreeAction, deleteTreeAction, renameTreeAction, respondInviteAction } from "@/app/dashboard/actions";
 import { Button } from "@/components/button";
 import { Tooltip } from "@/components/tooltip";
 import type { TreeListItem } from "@/lib/tree-list";
@@ -14,7 +14,13 @@ const visibilityLabel = {
   public: "Public",
 } as const;
 
-export function DashboardView({ trees }: { trees: TreeListItem[] }) {
+export function DashboardView({
+  trees,
+  invites = [],
+}: {
+  trees: TreeListItem[];
+  invites?: { id: string; treeId: string; treeName: string }[];
+}) {
   const [creating, setCreating] = useState(false);
 
   return (
@@ -28,6 +34,8 @@ export function DashboardView({ trees }: { trees: TreeListItem[] }) {
           New tree
         </Button>
       </div>
+
+      {invites.length > 0 ? <InviteList invites={invites} /> : null}
 
       {creating ? <CreateTreeForm onClose={() => setCreating(false)} /> : null}
 
@@ -51,6 +59,51 @@ export function DashboardView({ trees }: { trees: TreeListItem[] }) {
         </ul>
       )}
     </main>
+  );
+}
+
+function InviteList({ invites }: { invites: { id: string; treeName: string }[] }) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <section className="mt-10 rounded-[2rem] border border-border bg-surface p-6">
+      <h2 className="font-display text-3xl">Invitations</h2>
+      <ul className="mt-4 flex flex-col gap-3">
+        {invites.map((invite) => (
+          <li key={invite.id} className="flex flex-wrap items-center justify-between gap-3">
+            <p>{invite.treeName}</p>
+            <div className="flex gap-2">
+              <Button
+                tooltip="Accept this admin invitation"
+                disabled={pending}
+                onClick={() => {
+                  startTransition(async () => {
+                    const result = await respondInviteAction(invite.id, true);
+                    if (result.error) setError(result.error);
+                  });
+                }}
+              >
+                Accept
+              </Button>
+              <Button
+                tooltip="Decline this admin invitation"
+                variant="ghost"
+                disabled={pending}
+                onClick={() => {
+                  startTransition(async () => {
+                    const result = await respondInviteAction(invite.id, false);
+                    if (result.error) setError(result.error);
+                  });
+                }}
+              >
+                Decline
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+    </section>
   );
 }
 

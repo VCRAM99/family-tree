@@ -199,6 +199,7 @@ export async function updateTreeSettings(userId: string | null, treeId: string, 
         socialsEnabled: parsed.socialsEnabled,
         photosEnabled: parsed.photosEnabled,
         hideLivingDetails: parsed.hideLivingDetails,
+        notifySuggestions: parsed.notifySuggestions,
         visibleFields: uniqueVisibleFields(parsed.visibleFields),
         theme: parsed.theme,
         customFieldDefs: parsed.customFieldDefs,
@@ -244,17 +245,7 @@ export async function publicTagAvailability(userId: string | null, treeId: strin
   return { valid: true, available: true, message: "That tag is available." };
 }
 
-export async function inviteTreeAdmin(actorId: string | null, treeId: string, email: string) {
-  await requireTreeOwner(actorId, treeId);
-  const invitedEmail = email.trim().toLowerCase();
-  if (!invitedEmail.includes("@")) throw new AuthzError("Enter an email address.", "invalid");
-  await getDb().insert(treeAdmins).values({
-    treeId,
-    invitedEmail,
-    role: "admin",
-    status: "pending",
-  });
-}
+export { inviteTreeAdmin } from "./invites";
 
 export async function getTreeTheme(treeId: string): Promise<ThemeId> {
   const [row] = await getDb().select({ theme: trees.theme }).from(trees).where(eq(trees.id, treeId)).limit(1);

@@ -4,14 +4,17 @@ import { and, eq } from "drizzle-orm";
 
 import { treeAdmins } from "@/lib/db/schema";
 
-import { getDb } from "./db";
+import { getDb, type AppDatabase } from "./db";
 import { AuthzError } from "./errors";
+
+type RoleQuery = Pick<AppDatabase, "select">;
 
 export type TreeRole = "owner" | "admin";
 
-export async function getTreeRole(userId: string | null, treeId: string): Promise<TreeRole | null> {
+export async function getTreeRole(userId: string | null, treeId: string, db?: RoleQuery): Promise<TreeRole | null> {
   if (!userId) return null;
-  const [row] = await getDb()
+  const query = db ?? getDb();
+  const [row] = await query
     .select({ role: treeAdmins.role, status: treeAdmins.status })
     .from(treeAdmins)
     .where(and(eq(treeAdmins.treeId, treeId), eq(treeAdmins.userId, userId)))
@@ -22,9 +25,9 @@ export async function getTreeRole(userId: string | null, treeId: string): Promis
   return null;
 }
 
-export async function requireTreeAdmin(userId: string | null, treeId: string): Promise<TreeRole> {
+export async function requireTreeAdmin(userId: string | null, treeId: string, db?: RoleQuery): Promise<TreeRole> {
   if (!userId) throw new AuthzError("Sign in to continue.", "unauthenticated");
-  const role = await getTreeRole(userId, treeId);
+  const role = await getTreeRole(userId, treeId, db);
   if (!role) throw new AuthzError("You do not have access to this tree.", "forbidden");
   return role;
 }

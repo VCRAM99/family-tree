@@ -1,4 +1,5 @@
 import { SettingsForm, type SettingsTree } from "@/components/settings-form";
+import { listTreeAdmins } from "@/lib/server/invites";
 import { isThemeId } from "@/lib/themes";
 import type { PersonField } from "@/lib/domain";
 import { PERSON_FIELDS } from "@/lib/domain";
@@ -28,11 +29,13 @@ export default async function TreeSettingsPage({ params }: { params: Promise<{ i
     socialsEnabled: tree.socialsEnabled,
     photosEnabled: tree.photosEnabled,
     hideLivingDetails: tree.hideLivingDetails,
+    notifySuggestions: tree.notifySuggestions,
     visibleFields,
     theme: isThemeId(tree.theme) ? tree.theme : "system",
     customFieldDefs: parseCustomFieldDefs(tree.customFieldDefs),
     role,
   };
 
-  return <SettingsForm tree={settings} />;
+  const admins = role === "owner" ? await listTreeAdmins(user.id, id) : [];
+  return <SettingsForm tree={settings} admins={admins} />;
 }

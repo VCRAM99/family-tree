@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AuthPanel } from "@/components/auth-panel";
 import { TreeLookup } from "@/components/tree-lookup";
+import { safeNextPath } from "@/lib/paths";
 import { getCurrentUser } from "@/lib/server/session";
 
 export default async function HomePage({
@@ -9,9 +10,9 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ next?: string; mode?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (user) redirect("/dashboard");
   const params = await searchParams;
+  const user = await getCurrentUser();
+  if (user) redirect(safeNextPath(params.next));
 
   return (
     <main className="grid min-h-full lg:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">

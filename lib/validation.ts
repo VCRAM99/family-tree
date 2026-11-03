@@ -40,6 +40,7 @@ export const settingsSchema = z.object({
   socialsEnabled: z.boolean(),
   photosEnabled: z.boolean(),
   hideLivingDetails: z.boolean(),
+  notifySuggestions: z.boolean(),
   visibleFields: z.array(personFieldSchema),
   theme: themeSchema,
   customFieldDefs: z.array(customFieldDefSchema).max(40),

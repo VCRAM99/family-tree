@@ -38,6 +38,8 @@ export type GraphPerson = {
   aliases?: string[];
   /** Hidden parent used so siblings can exist before a real parent is known. */
   isPlaceholder?: boolean;
+  /** Public view: this living person is name-only. */
+  livingOnly?: boolean;
 };
 
 export type GraphParentLink = {
