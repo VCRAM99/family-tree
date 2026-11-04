@@ -118,6 +118,9 @@ export async function consumeLookup(ip: string, now = new Date()): Promise<boole
       set: { count: sql`${lookupBuckets.count} + 1` },
     })
     .returning({ count: lookupBuckets.count });
+  if ((row?.count ?? 1) === 1) {
+    await getDb().delete(lookupBuckets).where(sql`${lookupBuckets.windowStart} < ${windowStart}`);
+  }
   return (row?.count ?? 1) <= LOOKUP_LIMIT;
 }
 

@@ -8,14 +8,21 @@ import { account, rateLimit, session, user, verification } from "@/lib/db/schema
 
 import { getDb } from "./db";
 import { sendEmail } from "./email";
+import { brandedEmail } from "./email-templates";
 
 function appUrl(): string {
   return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 }
 
+const productionOrigin = "https://familytree.varunsr.com";
+
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: appUrl(),
+  trustedOrigins: [productionOrigin, appUrl()],
+  advanced: {
+    useSecureCookies: process.env.NODE_ENV === "production",
+  },
   database: drizzleAdapter(getDb(), {
     provider: "pg",
     transaction: true,
@@ -26,11 +33,14 @@ export const auth = betterAuth({
     requireEmailVerification: true,
     autoSignIn: false,
     sendResetPassword: async ({ user: accountUser, url }) => {
-      void sendEmail({
-        to: accountUser.email,
+      const message = brandedEmail({
         subject: "Reset your Family Tree password",
-        text: `Reset your password:\n${url}\n\nIf you did not ask for this, you can ignore this email.`,
-      }).catch((error: unknown) => {
+        eyebrow: "Family Tree",
+        title: "Reset your password",
+        paragraphs: ["Use the link below to choose a new password. If you did not ask for this, you can ignore this email."],
+        action: { label: "Choose a new password", href: url },
+      });
+      void sendEmail({ to: accountUser.email, ...message }).catch((error: unknown) => {
         console.error("[email] reset password failed", error);
       });
     },
@@ -40,11 +50,14 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user: accountUser, url }) => {
-      void sendEmail({
-        to: accountUser.email,
+      const message = brandedEmail({
         subject: "Verify your Family Tree email",
-        text: `Verify your email:\n${url}\n`,
-      }).catch((error: unknown) => {
+        eyebrow: "Family Tree",
+        title: "Verify your email",
+        paragraphs: ["Confirm this address to finish creating your account."],
+        action: { label: "Verify email", href: url },
+      });
+      void sendEmail({ to: accountUser.email, ...message }).catch((error: unknown) => {
         console.error("[email] verification failed", error);
       });
     },

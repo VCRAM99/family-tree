@@ -8,6 +8,7 @@ import { treeAdmins, trees } from "@/lib/db/schema";
 import { requireTreeOwner } from "./authz";
 import { getDb } from "./db";
 import { sendEmail } from "./email";
+import { brandedEmail } from "./email-templates";
 import { AuthzError, isUniqueViolation } from "./errors";
 
 export async function inviteTreeAdmin(actorId: string | null, treeId: string, email: string) {
@@ -34,13 +35,16 @@ export async function inviteTreeAdmin(actorId: string | null, treeId: string, em
 
   const origin = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
   const link = existingUser ? `${origin}/dashboard` : `${origin}/?mode=sign-up&next=/dashboard`;
-  void sendEmail({
-    to: invitedEmail,
+  const message = brandedEmail({
     subject: `You're invited to ${tree.name}`,
-    text: existingUser
-      ? `You have been invited to help tend ${tree.name}.\nAccept or decline: ${link}\n`
-      : `You have been invited to help tend ${tree.name}.\nCreate an account with this email address, then accept the invitation: ${link}\n`,
-  }).catch((error: unknown) => {
+    eyebrow: "Family Tree",
+    title: `Join ${tree.name}`,
+    paragraphs: existingUser
+      ? [`You have been invited to help tend ${tree.name}. Accept or decline from your dashboard.`]
+      : [`You have been invited to help tend ${tree.name}. Create an account with this email address, then accept the invitation.`],
+    action: { label: existingUser ? "Open your dashboard" : "Create an account", href: link },
+  });
+  void sendEmail({ to: invitedEmail, ...message }).catch((error: unknown) => {
     console.error("[email] invite failed", error);
   });
 }

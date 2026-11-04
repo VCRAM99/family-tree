@@ -10,6 +10,7 @@ import { contactError, createSuggestionSchema } from "@/lib/validation";
 import { requireTreeAdmin } from "./authz";
 import { getDb } from "./db";
 import { sendEmail } from "./email";
+import { brandedEmail } from "./email-templates";
 import { AuthzError } from "./errors";
 import { createPersonWithRelation, updatePerson, type WriteExecutor } from "./person-writes";
 
@@ -90,11 +91,15 @@ export async function createSuggestion(
     const [owner] = await getDb().select({ email: user.email }).from(user).where(eq(user.id, tree.ownerId)).limit(1);
     if (owner?.email) {
       const origin = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-      void sendEmail({
-        to: owner.email,
+      const href = `${origin}/tree/${tree.id}/suggestions`;
+      const message = brandedEmail({
         subject: `New suggestion on ${tree.name}`,
-        text: `Someone suggested a change on ${tree.name}.\nReview it: ${origin}/tree/${tree.id}/suggestions\n`,
-      }).catch((error: unknown) => {
+        eyebrow: tree.name,
+        title: "A new suggestion is waiting",
+        paragraphs: [`Someone suggested a change on ${tree.name}.`],
+        action: { label: "Review suggestions", href },
+      });
+      void sendEmail({ to: owner.email, ...message }).catch((error: unknown) => {
         console.error("[email] suggestion notice failed", error);
       });
     }

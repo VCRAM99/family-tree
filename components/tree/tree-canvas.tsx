@@ -233,7 +233,7 @@ function CanvasSurface(props: {
             {showMap ? <MiniMap pannable zoomable /> : null}
           </ReactFlow>
         ) : (
-          <p className="p-8 text-muted">Arranging the tree…</p>
+          <LayoutSkeleton />
         )}
         {props.focused && props.personId ? (
           <FocusChrome personId={props.personId} index={index} editing={props.editing} onNavigate={props.onFocus} onAdd={props.onAdd} />
@@ -263,6 +263,35 @@ function CanvasSurface(props: {
         </div>
       </div>
     </CanvasContext.Provider>
+  );
+}
+
+function LayoutSkeleton() {
+  return (
+    <div className="flex h-full items-center justify-center" aria-busy="true">
+      <p className="sr-only">Arranging the tree</p>
+      <div className="flex flex-col items-center gap-8">
+        <div className="flex gap-6">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <div className="h-8 w-px bg-border" />
+        <div className="flex gap-6">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="h-16 w-28 animate-pulse rounded-2xl border border-border bg-surface">
+      <div className="m-3 h-2 w-16 rounded-full bg-border" />
+      <div className="mx-3 h-2 w-10 rounded-full bg-border" />
+    </div>
   );
 }
 

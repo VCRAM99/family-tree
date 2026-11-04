@@ -19,6 +19,7 @@ import {
   type RelationInput,
 } from "@/lib/server/person-writes";
 import { requireUser } from "@/lib/server/session";
+import { readTree } from "@/lib/server/trees";
 import { clearViewerIdentity, setViewerIdentity } from "@/lib/server/viewer-identity";
 
 function refresh(treeId: string) {
@@ -112,6 +113,16 @@ export async function deletePersonAction(treeId: string, personId: string) {
     const result = await deletePerson(user.id, treeId, personId);
     refresh(treeId);
     return result;
+  } catch (error) {
+    return { error: actionError(error) };
+  }
+}
+
+export async function readTreeAction(treeId: string): Promise<{ name: string } | { error: string }> {
+  const user = await requireUser();
+  try {
+    const tree = await readTree(user.id, treeId);
+    return { name: tree.name };
   } catch (error) {
     return { error: actionError(error) };
   }

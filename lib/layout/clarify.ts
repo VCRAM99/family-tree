@@ -29,33 +29,71 @@ function assignLanes(edges: LayoutEdge[]) {
     list.push(edge);
     families.set(edge.familyId, list);
   }
-  const bars = new Map<string, number>();
+  type Bar = { id: string; y: number; minX: number; maxX: number };
+  const groups = new Map<number, Bar[]>();
   for (const [id, list] of families) {
     const sample = list[0];
-    if (sample) bars.set(id, barY(sample));
-  }
-  const groups = new Map<number, string[]>();
-  for (const [id, y] of bars) {
+    if (!sample) continue;
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    const y = barY(sample);
+    for (const edge of list) {
+      for (const point of edge.points ?? []) {
+        if (Math.abs(point.y - y) > 1.5) continue;
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+      }
+    }
+    if (!Number.isFinite(minX) || maxX - minX < 1) continue;
     const key = Math.round(y / 8);
-    const list = groups.get(key) ?? [];
-    list.push(id);
-    groups.set(key, list);
+    const row = groups.get(key) ?? [];
+    row.push({ id, y, minX, maxX });
+    groups.set(key, row);
   }
-  for (const ids of groups.values()) {
-    ids.sort((a, b) => a.localeCompare(b));
-    const base = Math.min(...ids.map((id) => bars.get(id) ?? 0));
-    ids.forEach((id, lane) => {
-      const from = bars.get(id) ?? base;
-      const to = base + lane * LANE;
-      if (Math.abs(from - to) < 0.5) return;
-      for (const edge of families.get(id) ?? []) {
+  for (const row of groups.values()) {
+    const lanes = colorIntervals(row);
+    const base = Math.min(...row.map((bar) => bar.y));
+    for (const bar of row) {
+      const from = bar.y;
+      const to = base + (lanes.get(bar.id) ?? 0) * LANE;
+      if (Math.abs(from - to) < 0.5) continue;
+      for (const edge of families.get(bar.id) ?? []) {
         if (!edge.points) continue;
         for (const point of edge.points) {
           if (Math.abs(point.y - from) < 1.5) point.y = to;
         }
       }
-    });
+    }
   }
+}
+
+/** Smallest lane whose x-range is free. Touching endpoints may share a lane. */
+function colorIntervals(bars: { id: string; minX: number; maxX: number }[]): Map<string, number> {
+  type Event = { x: number; kind: number; id: string; maxX: number };
+  const events: Event[] = [];
+  for (const bar of bars) {
+    events.push({ x: bar.minX, kind: 1, id: bar.id, maxX: bar.maxX });
+    events.push({ x: bar.maxX, kind: 0, id: bar.id, maxX: bar.maxX });
+  }
+  events.sort((a, b) => a.x - b.x || a.kind - b.kind || a.id.localeCompare(b.id));
+  const lanes = new Map<string, number>();
+  const active = new Map<string, number>();
+  const free: number[] = [];
+  let next = 0;
+  for (const event of events) {
+    if (event.kind === 0) {
+      const lane = active.get(event.id);
+      if (lane === undefined) continue;
+      active.delete(event.id);
+      free.push(lane);
+      continue;
+    }
+    free.sort((a, b) => a - b);
+    const lane = free.shift() ?? next++;
+    active.set(event.id, lane);
+    lanes.set(event.id, lane);
+  }
+  return lanes;
 }
 
 function barY(edge: LayoutEdge): number {
@@ -108,8 +146,19 @@ function offsetVerticals(edges: LayoutEdge[]) {
   }
 }
 
+type Segment = {
+  edge: LayoutEdge;
+  index: number;
+  a: Point;
+  b: Point;
+  family: string;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
 function punchCrossings(edges: LayoutEdge[]): LayoutEdge[] {
-  type Segment = { edge: LayoutEdge; index: number; a: Point; b: Point; family: string };
   const segments: Segment[] = [];
   for (const edge of edges) {
     const points = edge.points ?? [];
@@ -117,28 +166,157 @@ function punchCrossings(edges: LayoutEdge[]): LayoutEdge[] {
       const a = points[index];
       const b = points[index + 1];
       if (!a || !b) continue;
-      segments.push({ edge, index, a, b, family: familyKey(edge) });
+      segments.push({
+        edge,
+        index,
+        a,
+        b,
+        family: familyKey(edge),
+        minX: Math.min(a.x, b.x),
+        maxX: Math.max(a.x, b.x),
+        minY: Math.min(a.y, b.y),
+        maxY: Math.max(a.y, b.y),
+      });
     }
   }
-  const gaps = new Map<LayoutEdge, Point[]>();
-  for (let left = 0; left < segments.length; left += 1) {
-    for (let right = left + 1; right < segments.length; right += 1) {
-      const a = segments[left];
-      const b = segments[right];
-      if (!a || !b || a.family === b.family) continue;
-      const hit = intersection(a.a, a.b, b.a, b.b);
-      if (!hit) continue;
-      const lower = averageY(a.a, a.b) >= averageY(b.a, b.b) ? a.edge : b.edge;
-      const list = gaps.get(lower) ?? [];
-      list.push(hit);
-      gaps.set(lower, list);
-    }
-  }
+  const gaps = collectCrossings(segments);
   return edges.map((edge) => {
     const points = edge.points ?? [];
     const holes = gaps.get(edge) ?? [];
     return { ...edge, strokes: holes.length > 0 ? applyGaps(points, holes) : points.length > 1 ? [points] : undefined };
   });
+}
+
+/**
+ * Crossings are almost always a horizontal bus against a vertical drop.
+ * Each generation gap is swept in x, so a segment is compared with the bars
+ * that actually cover it instead of every other segment.
+ */
+function collectCrossings(segments: Segment[]): Map<LayoutEdge, Point[]> {
+  const gaps = new Map<LayoutEdge, Point[]>();
+  const note = (left: Segment, right: Segment, hit: Point) => {
+    const lower = averageY(left.a, left.b) >= averageY(right.a, right.b) ? left.edge : right.edge;
+    const list = gaps.get(lower) ?? [];
+    list.push(hit);
+    gaps.set(lower, list);
+  };
+
+  const horizontals: Segment[] = [];
+  const verticals: Segment[] = [];
+  const diagonals: Segment[] = [];
+  for (const segment of segments) {
+    const dx = segment.maxX - segment.minX;
+    const dy = segment.maxY - segment.minY;
+    if (dy < 0.5 && dx > 1) horizontals.push(segment);
+    else if (dx < 0.5 && dy > 1) verticals.push(segment);
+    else if (dx > 0.5 || dy > 0.5) diagonals.push(segment);
+  }
+
+  const bands = new Map<number, { y: number; bars: Segment[]; drops: Segment[] }>();
+  for (const bar of horizontals) {
+    const key = Math.round(bar.a.y);
+    const band = bands.get(key) ?? { y: bar.a.y, bars: [], drops: [] };
+    band.bars.push(bar);
+    bands.set(key, band);
+  }
+  const ordered = [...bands.values()].sort((a, b) => a.y - b.y);
+  const ys = ordered.map((band) => band.y);
+  for (const drop of verticals) {
+    const span = drop.maxY - drop.minY;
+    const low = lowerBound(ys, drop.minY + span * 0.04);
+    const high = upperBound(ys, drop.maxY - span * 0.04);
+    for (let index = low; index < high; index += 1) ordered[index]?.drops.push(drop);
+  }
+  for (const band of ordered) sweepBand(band.bars, band.drops, note);
+  if (diagonals.length > 0) diagonalHits(diagonals, segments, note);
+  return gaps;
+}
+
+function sweepBand(bars: Segment[], drops: Segment[], note: (left: Segment, right: Segment, hit: Point) => void) {
+  type Event = { x: number; kind: number; seg: Segment };
+  const events: Event[] = [];
+  for (const bar of bars) {
+    events.push({ x: bar.minX, kind: 0, seg: bar });
+    events.push({ x: bar.maxX, kind: 2, seg: bar });
+  }
+  for (const drop of drops) events.push({ x: drop.a.x, kind: 1, seg: drop });
+  events.sort((a, b) => a.x - b.x || a.kind - b.kind);
+  const active: Segment[] = [];
+  for (const event of events) {
+    if (event.kind === 0) {
+      active.push(event.seg);
+      continue;
+    }
+    if (event.kind === 2) {
+      const index = active.indexOf(event.seg);
+      if (index >= 0) active.splice(index, 1);
+      continue;
+    }
+    for (const bar of active) {
+      if (bar.family === event.seg.family) continue;
+      const hit = intersection(bar.a, bar.b, event.seg.a, event.seg.b);
+      if (hit) note(bar, event.seg, hit);
+    }
+  }
+}
+
+const CELL = 96;
+
+function diagonalHits(diagonals: Segment[], segments: Segment[], note: (left: Segment, right: Segment, hit: Point) => void) {
+  const buckets = new Map<string, Segment[]>();
+  const cellsOf = (segment: Segment) => {
+    const keys: string[] = [];
+    const x0 = Math.floor(segment.minX / CELL);
+    const x1 = Math.floor(segment.maxX / CELL);
+    const y0 = Math.floor(segment.minY / CELL);
+    const y1 = Math.floor(segment.maxY / CELL);
+    for (let x = x0; x <= x1; x += 1) {
+      for (let y = y0; y <= y1; y += 1) keys.push(`${x}:${y}`);
+    }
+    return keys;
+  };
+  for (const segment of segments) {
+    for (const key of cellsOf(segment)) {
+      const list = buckets.get(key) ?? [];
+      list.push(segment);
+      buckets.set(key, list);
+    }
+  }
+  const seen = new Set<string>();
+  for (const diagonal of diagonals) {
+    for (const key of cellsOf(diagonal)) {
+      for (const other of buckets.get(key) ?? []) {
+        if (other === diagonal || other.family === diagonal.family) continue;
+        const pair = diagonal.edge.id < other.edge.id ? `${diagonal.edge.id}:${diagonal.index}:${other.edge.id}:${other.index}` : `${other.edge.id}:${other.index}:${diagonal.edge.id}:${diagonal.index}`;
+        if (seen.has(pair)) continue;
+        seen.add(pair);
+        const hit = intersection(diagonal.a, diagonal.b, other.a, other.b);
+        if (hit) note(diagonal, other, hit);
+      }
+    }
+  }
+}
+
+function lowerBound(values: number[], target: number): number {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if ((values[mid] ?? 0) < target) low = mid + 1;
+    else high = mid;
+  }
+  return low;
+}
+
+function upperBound(values: number[], target: number): number {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if ((values[mid] ?? 0) <= target) low = mid + 1;
+    else high = mid;
+  }
+  return low;
 }
 
 function averageY(a: Point, b: Point): number {
@@ -159,34 +337,57 @@ function intersection(a1: Point, a2: Point, b1: Point, b2: Point): Point | null 
 }
 
 function applyGaps(points: Point[], gaps: Point[]): Point[][] {
-  let parts: Point[][] = [points.map((point) => ({ ...point }))];
-  for (const gap of gaps) parts = parts.flatMap((part) => splitPart(part, gap));
-  return parts.filter((part) => part.length >= 2 && span(part) > 1);
-}
-
-function splitPart(points: Point[], gap: Point): Point[][] {
+  const cuts = new Map<number, number[]>();
+  for (const gap of gaps) {
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (!start || !end) continue;
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const lengthSq = dx * dx + dy * dy;
+      if (lengthSq < 1) continue;
+      const t = ((gap.x - start.x) * dx + (gap.y - start.y) * dy) / lengthSq;
+      if (t <= 0.02 || t >= 0.98) continue;
+      const nearestX = start.x + t * dx;
+      const nearestY = start.y + t * dy;
+      if ((nearestX - gap.x) ** 2 + (nearestY - gap.y) ** 2 > 2.25) continue;
+      const list = cuts.get(index) ?? [];
+      list.push(t * Math.sqrt(lengthSq));
+      cuts.set(index, list);
+      break;
+    }
+  }
+  if (cuts.size === 0) return [points];
+  const parts: Point[][] = [];
+  let current: Point[] = [];
+  const first = points[0];
+  if (first) current.push(first);
   for (let index = 0; index < points.length - 1; index += 1) {
     const start = points[index];
     const end = points[index + 1];
     if (!start || !end) continue;
+    const distances = cuts.get(index);
+    if (!distances || distances.length === 0) {
+      current.push(end);
+      continue;
+    }
     const length = Math.hypot(end.x - start.x, end.y - start.y);
-    if (length < 1) continue;
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const t = ((gap.x - start.x) * dx + (gap.y - start.y) * dy) / (length * length);
-    if (t <= 0.02 || t >= 0.98) continue;
-    const nearestX = start.x + t * dx;
-    const nearestY = start.y + t * dy;
-    if (Math.hypot(nearestX - gap.x, nearestY - gap.y) > 1.5) continue;
-    const before = Math.max(0, t * length - GAP);
-    const after = Math.min(length, t * length + GAP);
-    const leftEnd = pointAt(start, end, before);
-    const rightStart = pointAt(start, end, after);
-    const left = [...points.slice(0, index + 1), leftEnd];
-    const right = [rightStart, ...points.slice(index + 1)];
-    return [left, right];
+    const unique = [...new Set(distances.map((distance) => Math.round(distance * 10) / 10))].sort((a, b) => a - b);
+    let cursor = 0;
+    for (const distance of unique) {
+      const before = Math.max(cursor, distance - GAP);
+      const after = Math.min(length, distance + GAP);
+      if (before > cursor + 0.5) current.push(pointAt(start, end, before));
+      if (span(current) > 1) parts.push(current);
+      current = after < length - 0.5 ? [pointAt(start, end, after)] : [];
+      cursor = after;
+    }
+    if (current.length > 0 && cursor < length - 0.5) current.push(end);
+    else if (cursor < length - 0.5) current = [pointAt(start, end, cursor), end];
   }
-  return [points];
+  if (span(current) > 1) parts.push(current);
+  return parts.filter((part) => part.length >= 2 && span(part) > 1);
 }
 
 function pointAt(start: Point, end: Point, distance: number): Point {

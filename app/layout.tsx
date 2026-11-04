@@ -21,6 +21,7 @@ const sans = Inter({
 });
 
 export const metadata = {
+  metadataBase: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000"),
   title: "Family Tree",
   description: "A quiet place for the people who made you.",
 };

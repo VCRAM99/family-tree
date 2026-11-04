@@ -23,7 +23,12 @@ export function TopBar({ user, suggestions }: { user: SessionUser; suggestions?:
             </Link>
           </Tooltip>
         ) : null}
-        <p className="hidden text-sm text-muted sm:block">{user.email}</p>
+        <Tooltip content="Account settings" side="bottom">
+          <Link href="/account" className="hidden h-11 items-center rounded-full px-3 text-sm text-muted sm:inline-flex">
+            {user.name}
+          </Link>
+        </Tooltip>
+        <p className="hidden text-sm text-muted lg:block">{user.email}</p>
         <SignOutButton />
       </div>
     </header>

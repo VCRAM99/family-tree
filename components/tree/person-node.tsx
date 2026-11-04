@@ -51,7 +51,7 @@ function PersonNodeView({ id }: NodeProps) {
       <div className="relative h-3 w-3" style={{ opacity }}>
         <Handle type="target" position={Position.Top} className="opacity-0" />
         <Handle type="source" position={Position.Bottom} className="opacity-0" />
-        <button type="button" title={name} onClick={() => chrome.onFocus(id)} className={`h-3 w-3 rounded-full border-2 ${accent} bg-surface`} />
+        <button type="button" title={name} aria-label={`Focus on ${name}`} onClick={() => chrome.onFocus(id)} className={`h-3 w-3 rounded-full border-2 ${accent} bg-surface`} />
       </div>
     );
   }
@@ -61,7 +61,15 @@ function PersonNodeView({ id }: NodeProps) {
       layoutId={chrome.personId === id ? `person-${id}` : undefined}
       transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 34 }}
       className={`person-card relative h-full w-full rounded-2xl border border-l-4 bg-surface px-3 py-2 text-left shadow-sm ${accent}`}
+      tabIndex={0}
+      aria-label={name}
       data-selected={selected ? "true" : "false"}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          chrome.onFocus(id);
+        }
+      }}
       style={{ opacity }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -27,9 +27,10 @@ export function Button({
   return (
     <Tooltip content={tooltip} side={tooltipSide} className={className.includes("w-full") ? "w-full" : ""}>
       <button
-        type={type}
-        className={`inline-flex h-11 items-center justify-center rounded-full px-5 text-sm tracking-wide transition disabled:cursor-not-allowed disabled:opacity-40 ${variants[variant]} ${className}`}
         {...props}
+        type={type}
+        aria-label={props["aria-label"] ?? tooltip}
+        className={`inline-flex h-11 items-center justify-center rounded-full px-5 text-sm tracking-wide transition disabled:cursor-not-allowed disabled:opacity-40 ${variants[variant]} ${className}`}
       />
     </Tooltip>
   );

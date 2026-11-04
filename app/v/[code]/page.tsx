@@ -21,8 +21,12 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   if (!view) return { title: "Tree not found", robots: { index: false, follow: false } };
   return {
     title: view.summary.name,
-    description: view.summary.description ?? `A private view of ${view.summary.name}.`,
+    description: "A private family archive.",
     robots: { index: false, follow: false },
+    openGraph: {
+      title: "Family Tree",
+      description: "A private family archive.",
+    },
   };
 }
 
