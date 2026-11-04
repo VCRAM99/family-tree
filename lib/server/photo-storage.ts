@@ -15,8 +15,16 @@ export type StoredPhoto = {
   updatedAt: Date;
 };
 
+export type PhotoMeta = {
+  mime: typeof PHOTO_MIME;
+  sizeBytes: number;
+  updatedAt: Date;
+};
+
 export interface PhotoStorage {
   put(personId: string, photo: { bytes: Uint8Array; mime: typeof PHOTO_MIME; sizeBytes: number }): Promise<void>;
+  /** ETag metadata only. Does not read the bytea column. */
+  stat(personId: string): Promise<PhotoMeta | null>;
   get(personId: string): Promise<StoredPhoto | null>;
   delete(personId: string): Promise<void>;
 }
@@ -49,8 +57,30 @@ export function createPostgresPhotoStorage(db: AppDatabase): PhotoStorage {
           },
         });
     },
+    async stat(personId) {
+      const [row] = await db
+        .select({
+          mime: personPhotos.mime,
+          sizeBytes: personPhotos.sizeBytes,
+          updatedAt: personPhotos.updatedAt,
+        })
+        .from(personPhotos)
+        .where(eq(personPhotos.personId, personId))
+        .limit(1);
+      if (!row || row.mime !== PHOTO_MIME) return null;
+      return { mime: PHOTO_MIME, sizeBytes: row.sizeBytes, updatedAt: row.updatedAt };
+    },
     async get(personId) {
-      const [row] = await db.select().from(personPhotos).where(eq(personPhotos.personId, personId)).limit(1);
+      const [row] = await db
+        .select({
+          bytes: personPhotos.bytes,
+          mime: personPhotos.mime,
+          sizeBytes: personPhotos.sizeBytes,
+          updatedAt: personPhotos.updatedAt,
+        })
+        .from(personPhotos)
+        .where(eq(personPhotos.personId, personId))
+        .limit(1);
       if (!row || row.mime !== PHOTO_MIME) return null;
       return {
         bytes: row.bytes,

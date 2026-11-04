@@ -1,0 +1,30 @@
+import { persons } from "@/lib/db/schema";
+
+/** Person columns safe to ship in graph and editor queries. Photo bytes live in another table. */
+export const personGraphColumns = {
+  id: persons.id,
+  treeId: persons.treeId,
+  firstName: persons.firstName,
+  middleName: persons.middleName,
+  lastName: persons.lastName,
+  preferredName: persons.preferredName,
+  birthSurname: persons.birthSurname,
+  sex: persons.sex,
+  birthDate: persons.birthDate,
+  birthDatePrecision: persons.birthDatePrecision,
+  deathDate: persons.deathDate,
+  deathDatePrecision: persons.deathDatePrecision,
+  isDeceased: persons.isDeceased,
+  birthPlace: persons.birthPlace,
+  nativePlace: persons.nativePlace,
+  currentLocation: persons.currentLocation,
+  occupation: persons.occupation,
+  bio: persons.bio,
+  hasPhoto: persons.hasPhoto,
+  phoneWhatsapp: persons.phoneWhatsapp,
+  email: persons.email,
+  instagram: persons.instagram,
+  facebook: persons.facebook,
+  customFields: persons.customFields,
+  isPlaceholder: persons.isPlaceholder,
+};

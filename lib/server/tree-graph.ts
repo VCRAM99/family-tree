@@ -1,6 +1,7 @@
 import "server-only";
 
 import { sql } from "drizzle-orm";
+import { cache } from "react";
 
 import type { CustomFieldValues } from "@/lib/domain";
 import type { DatePrecision, GraphParentLink, GraphPerson, GraphUnion, ParentKind, Sex, TreeGraph, UnionStatus } from "@/lib/family-graph";
@@ -9,7 +10,7 @@ import { requireTreeAdmin } from "./authz";
 import { getDb } from "./db";
 
 /** Authz-checked load of persons, parent links, and unions in a single query. */
-export async function getTreeGraph(treeId: string, userId: string | null): Promise<TreeGraph> {
+export const getTreeGraph = cache(async function getTreeGraph(treeId: string, userId: string | null): Promise<TreeGraph> {
   await requireTreeAdmin(userId, treeId);
   const result = await getDb().execute(sql`
     select
@@ -34,6 +35,7 @@ export async function getTreeGraph(treeId: string, userId: string | null): Promi
           'occupation', p.occupation,
           'bio', p.bio,
           'hasPhoto', p.has_photo,
+          'photoVersion', (select (floor(extract(epoch from pp.updated_at) * 1000))::text from person_photos pp where pp.person_id = p.id),
           'phoneWhatsapp', p.phone_whatsapp,
           'email', p.email,
           'instagram', p.instagram,
@@ -76,7 +78,7 @@ export async function getTreeGraph(treeId: string, userId: string | null): Promi
     parentLinks: asArray<GraphParentLink>(row?.parent_links),
     unions: asArray<GraphUnion>(row?.unions),
   };
-}
+});
 
 function firstRow(result: unknown): Record<string, unknown> | undefined {
   if (Array.isArray(result)) return result[0] as Record<string, unknown> | undefined;
@@ -102,6 +104,7 @@ function normalizePerson(person: GraphPerson): GraphPerson {
     deathDatePrecision: person.deathDatePrecision as DatePrecision | null,
     customFields: (person.customFields ?? {}) as CustomFieldValues,
     isPlaceholder: Boolean(person.isPlaceholder),
+    photoVersion: person.photoVersion ? String(person.photoVersion) : null,
     middleName: person.middleName,
     lastName: person.lastName,
     preferredName: person.preferredName,

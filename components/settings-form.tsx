@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { checkPublicTagAction, regenerateShareCodeAction, saveSettingsAction } from "@/app/tree/[id]/settings/actions";
 import { AdminManager, type AdminRow } from "@/components/admin-manager";
 import { Button } from "@/components/button";
+import { Tooltip } from "@/components/tooltip";
 import { useThemePreview } from "@/components/theme-provider";
 import { MAX_NODE_EXTRA_LINES, NODE_EXTRA_FIELDS, type CustomFieldDef, type CustomFieldType } from "@/lib/domain";
 import { PERSON_FIELD_LABELS, PERSON_FIELDS, THEME_IDS, THEME_LABELS, type PersonField, type ThemeId } from "@/lib/themes";
@@ -306,6 +307,28 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
             Add field
           </Button>
         </section>
+
+        {isOwner ? (
+          <section className="mt-10 flex flex-col gap-3">
+            <h2 className="font-display text-3xl">Export</h2>
+            <p className="text-sm text-muted">Download this tree as JSON. Importing that file creates a new tree and does not replace this one.</p>
+            <div className="flex flex-wrap gap-2">
+              <Tooltip content="Download people, relationships, and settings as JSON">
+                <a href={`/api/trees/${tree.id}/export`} className="inline-flex h-11 items-center rounded-full border border-border bg-surface px-5 text-sm">
+                  Download JSON
+                </a>
+              </Tooltip>
+              <Tooltip content="Download the JSON export including photo files">
+                <a
+                  href={`/api/trees/${tree.id}/export?photos=1`}
+                  className="inline-flex h-11 items-center rounded-full border border-border bg-surface px-5 text-sm"
+                >
+                  Download with photos
+                </a>
+              </Tooltip>
+            </div>
+          </section>
+        ) : null}
 
         {error ? <p className="mt-8 text-sm text-danger">{error}</p> : null}
         {saved ? <p className="mt-8 text-sm text-muted">Saved.</p> : null}

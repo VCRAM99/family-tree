@@ -1,11 +1,19 @@
 import pg from "pg";
 
+import { assertSafeDatabaseTarget } from "./db-guard.mjs";
+
 // Node's type stripper needs the .ts extension; the app compiler does not.
 // @ts-expect-error TS5097
 import { planUnionRepair, type RepairLink, type RepairUnion } from "../lib/union-repair.ts";
 
 const apply = process.argv.includes("--apply");
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("DATABASE_URL_UNPOOLED or DATABASE_URL is not set.");
+  process.exit(1);
+}
+assertSafeDatabaseTarget(connectionString);
+const pool = new pg.Pool({ connectionString });
 
 try {
   const links = await pool.query<RepairLink>(

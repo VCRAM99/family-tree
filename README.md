@@ -30,7 +30,23 @@ Schema lives in `lib/db/schema.ts` (Better Auth tables are generated into `lib/d
 - `npm run db:studio` opens Drizzle Studio against that same direct connection.
 - Relationship rules that Drizzle cannot express (the ancestry-cycle trigger, and same-tree checks) are custom SQL in `drizzle/0001_integrity_triggers.sql`. Generate an empty file with `npx drizzle-kit generate --custom --name your_name` before editing it.
 
-`npm test` applies those same files to PGlite, so the triggers are exercised without Neon.
+`npm test` applies those same files to PGlite, so the triggers are exercised without Neon. Tests refuse to start when `DATABASE_URL` or `DATABASE_URL_UNPOOLED` points at any host other than localhost.
+
+Set `PROTECTED_DB_HOSTS` to a comma-separated list of database hosts that scripts must not touch. `npm run db:migrate`, `scripts/generate-large-tree.ts`, `scripts/repair-unions.ts`, and `scripts/backup-db.mjs` print the target host and database name, then stop if the host is on that list. Production migrations require the flag explicitly:
+
+```bash
+npm run db:migrate:prod -- --i-know-this-is-production
+```
+
+## Backups
+
+Run a logical backup before any risky change. The script only reads, writes a timestamped JSON file under `backups/` (gitignored), and prints a row count per table:
+
+```bash
+node --env-file=.env.local scripts/backup-db.mjs
+```
+
+Owners can also download one tree as JSON from its settings page. Importing that file creates a new tree and does not replace an existing one.
 
 ## Neon branches
 

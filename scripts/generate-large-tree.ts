@@ -1,5 +1,7 @@
 import pg from "pg";
 
+import { assertSafeDatabaseTarget } from "./db-guard.mjs";
+
 const alphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
 function shareCode(): string {
@@ -13,7 +15,13 @@ function shareCode(): string {
   return code.padEnd(8, "2").slice(0, 8);
 }
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("DATABASE_URL_UNPOOLED or DATABASE_URL is not set.");
+  process.exit(1);
+}
+assertSafeDatabaseTarget(connectionString);
+const pool = new pg.Pool({ connectionString });
 
 try {
   const email = process.argv[2];

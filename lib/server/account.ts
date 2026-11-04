@@ -38,6 +38,10 @@ export async function changePassword(currentPassword: string, newPassword: strin
 /** Deletes owned trees and their data, then the account, in one transaction. */
 export async function deleteAccount(confirmation: string) {
   const current = await requireUser();
+  await deleteAccountData(current, confirmation);
+}
+
+export async function deleteAccountData(current: { id: string; email: string }, confirmation: string) {
   if (confirmation.trim().toLowerCase() !== current.email.toLowerCase()) {
     throw new AuthzError("Type your email address to confirm.", "invalid");
   }

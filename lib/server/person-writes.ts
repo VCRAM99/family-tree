@@ -16,6 +16,8 @@ import {
 
 import { requireTreeAdmin } from "./authz";
 import { getDb } from "./db";
+import { invalidatePublicTree } from "./public-cache";
+import { personGraphColumns } from "./person-columns";
 import { AuthzError, isAncestryCycle, isUniqueViolation } from "./errors";
 import { toGraphLink, toGraphPerson, toGraphUnion } from "./graph-map";
 
@@ -57,7 +59,11 @@ export async function updatePerson(
 ): Promise<GraphPerson> {
   await requireTreeAdmin(userId, treeId, executor);
   const db = executor ?? getDb();
-  const [existing] = await db.select().from(persons).where(and(eq(persons.id, personId), eq(persons.treeId, treeId))).limit(1);
+  const [existing] = await db
+    .select(personGraphColumns)
+    .from(persons)
+    .where(and(eq(persons.id, personId), eq(persons.treeId, treeId)))
+    .limit(1);
   if (!existing) throw new AuthzError("That person is not in this tree.", "invalid");
 
   const next = { ...toGraphPerson(existing) };
@@ -124,6 +130,7 @@ export async function updatePerson(
     .where(and(eq(persons.id, personId), eq(persons.treeId, treeId)))
     .returning();
   if (!saved) throw new AuthzError("That person is not in this tree.", "invalid");
+  invalidatePublicTree(treeId);
   return toGraphPerson(saved);
 }
 
@@ -180,7 +187,9 @@ export async function createPersonWithRelation(
   };
   try {
     if (executor) return await run(executor);
-    return await getDb().transaction(run);
+    const result = await getDb().transaction(run);
+    invalidatePublicTree(treeId);
+    return result;
   } catch (error) {
     throw mapWriteError(error);
   }
@@ -189,7 +198,7 @@ export async function createPersonWithRelation(
 export async function linkPeople(userId: string | null, treeId: string, input: LinkInput): Promise<WriteResult> {
   await requireTreeAdmin(userId, treeId);
   try {
-    return await getDb().transaction(async (tx) => {
+    const result = await getDb().transaction(async (tx) => {
       const plan = input;
       switch (plan.kind) {
         case "father":
@@ -216,6 +225,8 @@ export async function linkPeople(userId: string | null, treeId: string, input: L
         }
       }
     });
+    invalidatePublicTree(treeId);
+    return result;
   } catch (error) {
     throw mapWriteError(error);
   }
@@ -229,6 +240,7 @@ export async function updateParentLink(userId: string | null, treeId: string, li
     .where(and(eq(parentLinks.id, linkId), eq(parentLinks.treeId, treeId)))
     .returning();
   if (!link) throw new AuthzError("That relationship is not in this tree.", "invalid");
+  invalidatePublicTree(treeId);
   return toGraphLink(link);
 }
 
@@ -256,13 +268,14 @@ export async function updateUnion(
     .where(eq(unions.id, unionId))
     .returning();
   if (!saved) throw new AuthzError("That relationship is not in this tree.", "invalid");
+  invalidatePublicTree(treeId);
   return toGraphUnion(saved);
 }
 
 export async function reorderUnions(userId: string | null, treeId: string, personId: string, unionIds: string[]): Promise<GraphUnion[]> {
   await requireTreeAdmin(userId, treeId);
   try {
-    return await getDb().transaction(async (tx) => {
+    const savedUnions = await getDb().transaction(async (tx) => {
       await requirePerson(tx, treeId, personId);
       const rows = await tx
         .select()
@@ -281,6 +294,8 @@ export async function reorderUnions(userId: string | null, treeId: string, perso
       }
       return saved;
     });
+    invalidatePublicTree(treeId);
+    return savedUnions;
   } catch (error) {
     throw mapWriteError(error);
   }
@@ -298,6 +313,7 @@ export async function unlinkRelationship(
       .where(and(eq(parentLinks.id, input.linkId), eq(parentLinks.treeId, treeId)))
       .returning({ id: parentLinks.id });
     if (deleted.length === 0) throw new AuthzError("That relationship is not in this tree.", "invalid");
+    invalidatePublicTree(treeId);
     return;
   }
   const deleted = await getDb()
@@ -305,6 +321,7 @@ export async function unlinkRelationship(
     .where(and(eq(unions.id, input.unionId), eq(unions.treeId, treeId)))
     .returning({ id: unions.id });
   if (deleted.length === 0) throw new AuthzError("That relationship is not in this tree.", "invalid");
+  invalidatePublicTree(treeId);
 }
 
 export async function deletePerson(userId: string | null, treeId: string, personId: string): Promise<{ nextPersonId: string | null }> {
@@ -314,14 +331,62 @@ export async function deletePerson(userId: string | null, treeId: string, person
   if (!existing) throw new AuthzError("That person is not in this tree.", "invalid");
 
   const [people, links, pairings] = await Promise.all([
-    db.select().from(persons).where(eq(persons.treeId, treeId)),
-    db.select().from(parentLinks).where(eq(parentLinks.treeId, treeId)),
-    db.select().from(unions).where(eq(unions.treeId, treeId)),
+    db.select({ id: persons.id, isPlaceholder: persons.isPlaceholder }).from(persons).where(eq(persons.treeId, treeId)),
+    db
+      .select({
+        id: parentLinks.id,
+        parentId: parentLinks.parentId,
+        childId: parentLinks.childId,
+        kind: parentLinks.kind,
+        unionId: parentLinks.unionId,
+      })
+      .from(parentLinks)
+      .where(eq(parentLinks.treeId, treeId)),
+    db
+      .select({
+        id: unions.id,
+        personAId: unions.personAId,
+        personBId: unions.personBId,
+        status: unions.status,
+        startDate: unions.startDate,
+        endDate: unions.endDate,
+        sortOrder: unions.sortOrder,
+      })
+      .from(unions)
+      .where(eq(unions.treeId, treeId)),
   ]);
   const graph = {
-    persons: people.map(toGraphPerson),
-    parentLinks: links.map(toGraphLink),
-    unions: pairings.map(toGraphUnion),
+    persons: people.map(
+      (person): GraphPerson => ({
+        id: person.id,
+        treeId,
+        firstName: "",
+        middleName: null,
+        lastName: null,
+        preferredName: null,
+        birthSurname: null,
+        sex: "unknown",
+        birthDate: null,
+        birthDatePrecision: null,
+        deathDate: null,
+        deathDatePrecision: null,
+        isDeceased: false,
+        birthPlace: null,
+        nativePlace: null,
+        currentLocation: null,
+        occupation: null,
+        bio: null,
+        hasPhoto: false,
+        phoneWhatsapp: null,
+        email: null,
+        instagram: null,
+        facebook: null,
+        customFields: {},
+        isPlaceholder: person.isPlaceholder,
+      }),
+    ),
+    parentLinks: links,
+    unions: pairings.map((union) => ({ ...union, status: union.status as GraphUnion["status"] })),
   };
   const nextPersonId = chooseNextPerson(graph, personId);
 
@@ -331,6 +396,7 @@ export async function deletePerson(userId: string | null, treeId: string, person
     await tx.delete(persons).where(and(eq(persons.id, personId), eq(persons.treeId, treeId)));
   });
 
+  invalidatePublicTree(treeId);
   return { nextPersonId };
 }
 

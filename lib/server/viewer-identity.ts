@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { persons, viewerIdentities } from "@/lib/db/schema";
 
@@ -26,7 +27,7 @@ export async function setViewerIdentity(userId: string | null, treeId: string, p
     });
 }
 
-export async function readViewerIdentity(userId: string | null, treeId: string) {
+export const readViewerIdentity = cache(async function readViewerIdentity(userId: string | null, treeId: string) {
   if (!userId) throw new AuthzError("Sign in to continue.", "unauthenticated");
   const [row] = await getDb()
     .select({ personId: viewerIdentities.personId })
@@ -34,7 +35,7 @@ export async function readViewerIdentity(userId: string | null, treeId: string) 
     .where(and(eq(viewerIdentities.userId, userId), eq(viewerIdentities.treeId, treeId)))
     .limit(1);
   return row ?? null;
-}
+});
 
 export async function clearViewerIdentity(userId: string | null, treeId: string) {
   if (!userId) throw new AuthzError("Sign in to continue.", "unauthenticated");

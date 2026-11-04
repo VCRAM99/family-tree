@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { treeAdmins } from "@/lib/db/schema";
 
@@ -11,7 +12,7 @@ type RoleQuery = Pick<AppDatabase, "select">;
 
 export type TreeRole = "owner" | "admin";
 
-export async function getTreeRole(userId: string | null, treeId: string, db?: RoleQuery): Promise<TreeRole | null> {
+export const getTreeRole = cache(async function getTreeRole(userId: string | null, treeId: string, db?: RoleQuery): Promise<TreeRole | null> {
   if (!userId) return null;
   const query = db ?? getDb();
   const [row] = await query
@@ -23,7 +24,7 @@ export async function getTreeRole(userId: string | null, treeId: string, db?: Ro
   if (!row || row.status !== "accepted") return null;
   if (row.role === "owner" || row.role === "admin") return row.role;
   return null;
-}
+});
 
 export async function requireTreeAdmin(userId: string | null, treeId: string, db?: RoleQuery): Promise<TreeRole> {
   if (!userId) throw new AuthzError("Sign in to continue.", "unauthenticated");

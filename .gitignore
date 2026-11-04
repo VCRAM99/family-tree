@@ -39,6 +39,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# logical backups from scripts/backup-db.mjs
+/backups
+
 # local env files — .env.example is committed on purpose
 .env
 .env.local

@@ -80,7 +80,7 @@ function PersonNodeView({ id }: NodeProps) {
         {chrome.lod === "full" && chrome.photosEnabled && person.hasPhoto ? (
           // Person photos are stored WebP blobs served with a cache-busting query.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={`/api/photos/${person.id}`} alt="" className="h-10 w-10 rounded-full object-cover" />
+          <img src={`/api/photos/${person.id}?v=${person.photoVersion ?? "0"}`} alt="" className="h-10 w-10 rounded-full object-cover" />
         ) : null}
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-1">

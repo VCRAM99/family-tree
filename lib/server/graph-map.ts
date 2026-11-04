@@ -1,7 +1,34 @@
 import type { parentLinks, persons, unions } from "@/lib/db/schema";
 import type { GraphParentLink, GraphPerson, GraphUnion } from "@/lib/family-graph";
 
-type PersonRow = typeof persons.$inferSelect;
+type PersonRow = Pick<
+  typeof persons.$inferSelect,
+  | "id"
+  | "treeId"
+  | "firstName"
+  | "middleName"
+  | "lastName"
+  | "preferredName"
+  | "birthSurname"
+  | "sex"
+  | "birthDate"
+  | "birthDatePrecision"
+  | "deathDate"
+  | "deathDatePrecision"
+  | "isDeceased"
+  | "birthPlace"
+  | "nativePlace"
+  | "currentLocation"
+  | "occupation"
+  | "bio"
+  | "hasPhoto"
+  | "phoneWhatsapp"
+  | "email"
+  | "instagram"
+  | "facebook"
+  | "customFields"
+  | "isPlaceholder"
+>;
 type LinkRow = typeof parentLinks.$inferSelect;
 type UnionRow = typeof unions.$inferSelect;
 

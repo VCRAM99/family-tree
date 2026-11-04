@@ -512,7 +512,7 @@ function PhotoBlock({
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   if (!enabled) return null;
-  const src = preview ?? (person.hasPhoto ? `/api/photos/${person.id}?v=${version}` : null);
+  const src = preview ?? (person.hasPhoto ? `/api/photos/${person.id}?v=${person.photoVersion ?? version}` : null);
 
   return (
     <div className="shrink-0">

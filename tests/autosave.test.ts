@@ -75,6 +75,7 @@ describe("autosave hook", () => {
     saver.retry();
     await Promise.resolve();
     expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith("draft");
     expect(saver.status()).toBe("saved");
   });
 
@@ -116,5 +117,33 @@ describe("autosave hook", () => {
     expect(writes).toEqual(["original"]);
     expect(clock.pending()).toBe(false);
     saver.dispose();
+  });
+
+  it("keeps concurrent edits on two people apart", async () => {
+    const clockA = fakeTimers();
+    const clockB = fakeTimers();
+    const writes: string[] = [];
+    const first = createAutosave<string>({
+      delayMs: 600,
+      save: async (value) => {
+        writes.push(`ada:${value}`);
+      },
+      timers: clockA.timers,
+    });
+    const second = createAutosave<string>({
+      delayMs: 600,
+      save: async (value) => {
+        writes.push(`bea:${value}`);
+      },
+      timers: clockB.timers,
+    });
+    first.push("Ada bio");
+    second.push("Bea bio");
+    clockA.flush();
+    clockB.flush();
+    await Promise.resolve();
+    expect(writes.sort()).toEqual(["ada:Ada bio", "bea:Bea bio"]);
+    first.dispose();
+    second.dispose();
   });
 });

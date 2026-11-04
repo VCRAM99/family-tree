@@ -8,6 +8,9 @@ function isProtected(pathname: string): boolean {
 export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  requestHeaders.set("x-search", request.nextUrl.search);
+  requestHeaders.set("x-method", request.method);
+  requestHeaders.set("x-request-id", crypto.randomUUID());
 
   if (isProtected(request.nextUrl.pathname) && !getSessionCookie(request)) {
     const url = request.nextUrl.clone();

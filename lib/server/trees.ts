@@ -16,7 +16,10 @@ import {
 
 import type { TreeListItem } from "@/lib/tree-list";
 
+import { cache } from "react";
+
 import { requireTreeAdmin, requireTreeOwner } from "./authz";
+import { invalidatePublicTree } from "./public-cache";
 import { getDb } from "./db";
 import { AuthzError, isUniqueViolation } from "./errors";
 
@@ -94,12 +97,12 @@ export async function createTree(userId: string, email: string, input: { name: s
   });
 }
 
-export async function readTree(userId: string | null, treeId: string) {
+export const readTree = cache(async function readTree(userId: string | null, treeId: string) {
   await requireTreeAdmin(userId, treeId);
   const [tree] = await getDb().select().from(trees).where(eq(trees.id, treeId)).limit(1);
   if (!tree) throw new AuthzError("Tree not found.", "not_found");
   return tree;
-}
+});
 
 export async function renameTree(userId: string | null, treeId: string, name: string) {
   await requireTreeAdmin(userId, treeId);
@@ -110,6 +113,7 @@ export async function renameTree(userId: string | null, treeId: string, name: st
     .where(eq(trees.id, treeId))
     .returning();
   if (!tree) throw new AuthzError("Tree not found.", "not_found");
+  invalidatePublicTree(treeId);
   return tree;
 }
 
@@ -121,6 +125,7 @@ export async function deleteTree(userId: string | null, treeId: string, confirma
     throw new AuthzError("Type the tree’s name exactly to delete it.", "invalid");
   }
   await getDb().delete(trees).where(eq(trees.id, treeId));
+  invalidatePublicTree(treeId);
 }
 
 export async function changeTreeVisibility(
@@ -153,6 +158,7 @@ export async function changeTreeVisibility(
       .where(eq(trees.id, treeId))
       .returning();
     if (!tree) throw new AuthzError("Tree not found.", "not_found");
+    invalidatePublicTree(treeId);
     return tree;
   } catch (error) {
     if (error instanceof AuthzError) throw error;
@@ -208,6 +214,7 @@ export async function updateTreeSettings(userId: string | null, treeId: string, 
       .where(eq(trees.id, treeId))
       .returning();
     if (!tree) throw new AuthzError("Tree not found.", "not_found");
+    invalidatePublicTree(treeId);
     return tree;
   } catch (error) {
     if (error instanceof AuthzError) throw error;
@@ -225,6 +232,7 @@ export async function regenerateShareCode(userId: string | null, treeId: string)
       .where(eq(trees.id, treeId))
       .returning();
     if (!tree) throw new AuthzError("Tree not found.", "not_found");
+    invalidatePublicTree(treeId);
     return tree.shareCode;
   });
 }
@@ -247,8 +255,8 @@ export async function publicTagAvailability(userId: string | null, treeId: strin
 
 export { inviteTreeAdmin } from "./invites";
 
-export async function getTreeTheme(treeId: string): Promise<ThemeId> {
+export const getTreeTheme = cache(async function getTreeTheme(treeId: string): Promise<ThemeId> {
   const [row] = await getDb().select({ theme: trees.theme }).from(trees).where(eq(trees.id, treeId)).limit(1);
   if (row && isThemeId(row.theme)) return row.theme;
   return "system";
-}
+});

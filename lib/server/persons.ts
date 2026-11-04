@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 
 import { persons } from "@/lib/db/schema";
+import { personGraphColumns } from "./person-columns";
 import { createPersonSchema, emptyToNull } from "@/lib/validation";
 
 import { requireTreeAdmin } from "./authz";
@@ -33,7 +34,7 @@ export async function createPerson(
 
 export async function getPersonInTree(treeId: string, personId: string) {
   const [person] = await getDb()
-    .select()
+    .select(personGraphColumns)
     .from(persons)
     .where(and(eq(persons.id, personId), eq(persons.treeId, treeId)))
     .limit(1);

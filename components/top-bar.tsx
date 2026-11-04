@@ -15,7 +15,7 @@ export function TopBar({ user, suggestions }: { user: SessionUser; suggestions?:
       <div className="flex items-center gap-2 sm:gap-4">
         {suggestions ? (
           <Tooltip content="Review suggestions" side="bottom">
-            <Link href={suggestions.href} className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-4 text-sm">
+            <Link href={suggestions.href} prefetch={false} className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-4 text-sm">
               Suggestions
               {suggestions.count > 0 ? (
                 <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs text-surface">{suggestions.count}</span>

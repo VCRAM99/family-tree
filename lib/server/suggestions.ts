@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, gte, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { persons, suggestions, trees, user } from "@/lib/db/schema";
 import type { RelationInput } from "@/lib/person-edits";
@@ -13,6 +14,7 @@ import { sendEmail } from "./email";
 import { brandedEmail } from "./email-templates";
 import { AuthzError } from "./errors";
 import { createPersonWithRelation, updatePerson, type WriteExecutor } from "./person-writes";
+import { invalidatePublicTree } from "./public-cache";
 
 const DAILY_LIMIT = 20;
 
@@ -128,14 +130,14 @@ export async function listSuggestions(userId: string | null, treeId: string) {
   return rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function pendingSuggestionCount(userId: string | null, treeId: string): Promise<number> {
+export const pendingSuggestionCount = cache(async function pendingSuggestionCount(userId: string | null, treeId: string): Promise<number> {
   await requireTreeAdmin(userId, treeId);
   const [row] = await getDb()
     .select({ count: sql<number>`count(*)::int` })
     .from(suggestions)
     .where(and(eq(suggestions.treeId, treeId), eq(suggestions.status, "pending")));
   return row?.count ?? 0;
-}
+});
 
 export async function rejectSuggestion(userId: string | null, treeId: string, suggestionId: string) {
   await requireTreeAdmin(userId, treeId);
@@ -179,6 +181,7 @@ export async function approveSuggestion(
       .returning();
     if (!updated) throw new AuthzError("That suggestion is not waiting for review.", "not_found");
   });
+  invalidatePublicTree(treeId);
 }
 
 async function applyPayload(

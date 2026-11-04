@@ -25,13 +25,21 @@ export async function GET(request: Request, context: { params: Promise<{ personI
   }
   if (!admin && !(await publicPhotoAllowed(personId))) return new Response(null, { status: 404 });
 
-  const photo = await getPhotoStorage().get(personId);
-  if (!photo) return new Response(null, { status: 404 });
+  const storage = getPhotoStorage();
+  const meta = await storage.stat(personId);
+  if (!meta) return new Response(null, { status: 404 });
 
-  const etag = `W/"${photo.updatedAt.getTime()}-${photo.sizeBytes}"`;
+  const etag = `W/"${meta.updatedAt.getTime()}-${meta.sizeBytes}"`;
+  const versioned = new URL(request.url).searchParams.has("v");
+  const cacheControl = versioned
+    ? `${admin ? "private" : "public"}, max-age=31536000, immutable`
+    : `${admin ? "private" : "public"}, max-age=3600`;
   if (request.headers.get("if-none-match") === etag) {
-    return new Response(null, { status: 304, headers: { ETag: etag } });
+    return new Response(null, { status: 304, headers: { ETag: etag, "Cache-Control": cacheControl } });
   }
+
+  const photo = await storage.get(personId);
+  if (!photo) return new Response(null, { status: 404 });
 
   return new Response(Buffer.from(photo.bytes), {
     status: 200,
@@ -39,7 +47,7 @@ export async function GET(request: Request, context: { params: Promise<{ personI
       "Content-Type": photo.mime,
       "Content-Length": String(photo.sizeBytes),
       ETag: etag,
-      "Cache-Control": admin ? "private, max-age=3600" : "public, max-age=3600",
+      "Cache-Control": cacheControl,
     },
   });
 }

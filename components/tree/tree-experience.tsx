@@ -5,17 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LayoutGroup } from "motion/react";
 
-import {
-  createPersonAction,
-  deletePersonAction,
-  linkPeopleAction,
-  reorderUnionsAction,
-  setViewerAction,
-  unlinkAction,
-  updateParentLinkAction,
-  updatePersonAction,
-  updateUnionAction,
-} from "@/app/tree/[id]/actions";
+import { writeTree } from "@/lib/tree-writes";
 import { Button } from "@/components/button";
 import { FamilyColumn, type AddRole } from "@/components/tree/family-column";
 import { SuggestPanel } from "@/components/tree/suggest-panel";
@@ -44,6 +34,16 @@ import { assignGenerations } from "@/lib/layout";
 import { emptyFilters, filtersActive, peopleMatching, type TreeFilters } from "@/lib/tree-search";
 import { flushAutosaves, type AutosaveStatus } from "@/lib/autosave";
 import { carriedDraftPatch, childUnionChoice, mergeSavedPerson, type LinkInput, type PersonPatch, type RelationInput } from "@/lib/person-edits";
+
+type SavedWrite = {
+  error?: string;
+  person?: GraphPerson;
+  persons?: GraphPerson[];
+  removedPersonIds?: string[];
+  parentLinks?: TreeGraph["parentLinks"];
+  unions?: TreeGraph["unions"];
+  nextPersonId?: string | null;
+};
 
 export type TreeScreenData = {
   id: string;
@@ -185,8 +185,12 @@ function TreeScreen(props: TreeScreenData) {
       const name = (patch.firstName ?? live.firstName).trim();
       if (!patch.firstName || !name) return;
       const relation = drafts.current.get(key) ?? drafts.current.get(current.id) ?? { kind: "root" };
-      const result = await createPersonAction(props.id, { firstName: name, sex: live.sex, middleName: live.middleName, lastName: live.lastName }, relation);
-      if ("error" in result) throw new Error(result.error);
+      const result = await writeTree<SavedWrite>(props.id, {
+        op: "createPerson",
+        input: { firstName: name, sex: live.sex, middleName: live.middleName, lastName: live.lastName },
+        relation,
+      });
+      if (result.error) throw new Error(result.error);
       if (!("person" in result) || !result.person) throw new Error("Could not add that person.");
       const created = result.person;
       const currentPerson = findEditable(store.getState().graph, live) ?? live;
@@ -205,7 +209,11 @@ function TreeScreen(props: TreeScreenData) {
       const extra = carriedDraftPatch(fresh, draftTouched.current.get(key) ?? {});
       draftTouched.current.delete(key);
       if (Object.keys(extra).length === 0) return;
-      const updated = await updatePersonAction(props.id, created.id, extra);
+      const updated = await writeTree<{ person?: GraphPerson; error?: string }>(props.id, {
+        op: "updatePerson",
+        personId: created.id,
+        patch: extra,
+      });
       if (updated.person) {
         store.getState().apply((draft) => {
           const slot = draft.persons.findIndex((item) => item.id === created.id || item.clientKey === key);
@@ -214,7 +222,11 @@ function TreeScreen(props: TreeScreenData) {
       }
       return;
     }
-    const result = await updatePersonAction(props.id, live.id, patch);
+    const result = await writeTree<{ person?: GraphPerson; error?: string }>(props.id, {
+      op: "updatePerson",
+      personId: live.id,
+      patch,
+    });
     if (result.error || !result.person) throw new Error(result.error ?? "Could not save.");
     store.getState().apply((draft) => {
       const slot = draft.persons.findIndex((item) => item.id === live.id || item.clientKey === key);
@@ -265,8 +277,8 @@ function TreeScreen(props: TreeScreenData) {
     const input = linkInput(dialog.role, dialog.anchorId, otherId, dialog.unionId, dialog.alsoSiblings !== false, dialog.replacePlaceholder !== false);
     if (!input) return;
     const previous = store.getState().graph;
-    const result = await linkPeopleAction(props.id, input);
-    if ("error" in result) {
+    const result = await writeTree<SavedWrite>(props.id, { op: "link", input });
+    if (result.error) {
       store.getState().rollback(previous);
       setDialogError(result.error);
       return;
@@ -288,14 +300,17 @@ function TreeScreen(props: TreeScreenData) {
     const next = viewerId === person.id ? null : person.id;
     const previous = viewerId;
     setViewerId(next);
-    const result = await setViewerAction(props.id, next);
+    const result = await writeTree<{ error?: string }>(props.id, { op: "setViewer", personId: next });
     if (result.error) setViewerId(previous);
   }
 
   async function removePerson() {
     if (!person) return;
-    const result = await deletePersonAction(props.id, person.id);
-    if ("error" in result) {
+    const result = await writeTree<{ error?: string; nextPersonId?: string | null }>(props.id, {
+      op: "deletePerson",
+      personId: person.id,
+    });
+    if (result.error) {
       setDialogError(result.error);
       return;
     }
@@ -567,7 +582,10 @@ function TreeScreen(props: TreeScreenData) {
       if (type === "parent") draft.parentLinks = draft.parentLinks.filter((link) => link.id !== id);
       else draft.unions = draft.unions.filter((union) => union.id !== id);
     });
-    const result = await unlinkAction(props.id, type === "parent" ? { type, linkId: id } : { type, unionId: id });
+    const result = await writeTree<{ error?: string }>(props.id, {
+      op: "unlink",
+      input: type === "parent" ? { type, linkId: id } : { type, unionId: id },
+    });
     if (result.error) store.getState().rollback(previous);
   }
 
@@ -577,7 +595,7 @@ function TreeScreen(props: TreeScreenData) {
       const link = draft.parentLinks.find((item) => item.id === linkId);
       if (link) link.kind = kind;
     });
-    const result = await updateParentLinkAction(props.id, linkId, kind);
+    const result = await writeTree<{ error?: string }>(props.id, { op: "updateParentLink", linkId, kind });
     if (result.error) store.getState().rollback(previous);
   }
 
@@ -587,10 +605,10 @@ function TreeScreen(props: TreeScreenData) {
       const union = draft.unions.find((item) => item.id === unionId);
       if (union) union.status = status;
     });
-    const result = await updateUnionAction(props.id, unionId, { status });
-    if ("error" in result) {
+    const result = await writeTree<{ error?: string }>(props.id, { op: "updateUnion", unionId, unionPatch: { status } });
+    if (result.error) {
       store.getState().rollback(previous);
-      setRelationError(result.error ?? "Could not save that relationship.");
+      setRelationError(result.error);
       return;
     }
     setRelationError(null);
@@ -604,10 +622,10 @@ function TreeScreen(props: TreeScreenData) {
       if (patch.startDate !== undefined) union.startDate = patch.startDate;
       if (patch.endDate !== undefined) union.endDate = patch.endDate;
     });
-    const result = await updateUnionAction(props.id, unionId, patch);
-    if ("error" in result) {
+    const result = await writeTree<{ error?: string }>(props.id, { op: "updateUnion", unionId, unionPatch: patch });
+    if (result.error) {
       store.getState().rollback(previous);
-      setRelationError(result.error ?? "Could not save that relationship.");
+      setRelationError(result.error);
       return;
     }
     setRelationError(null);
@@ -630,7 +648,7 @@ function TreeScreen(props: TreeScreenData) {
         if (union) union.sortOrder = order;
       });
     });
-    const result = await reorderUnionsAction(props.id, person.id, ordered);
+    const result = await writeTree<SavedWrite>(props.id, { op: "reorderUnions", personId: person.id, unionIds: ordered });
     if (result.error) store.getState().rollback(previous);
   }
 }

@@ -1,0 +1,24 @@
+---
+description: Prevent commands and edits that can destroy a Neon database or its credentials
+alwaysApply: true
+---
+
+# Database safety
+
+The development database has been lost before. Do not take any action that can drop, reset, or overwrite a database or its credentials.
+
+- Never run `neonctl`, `psql`, or any command that creates, deletes, or resets Neon branches or projects.
+- Never run `DROP`, `TRUNCATE`, or `DELETE` without a `WHERE` clause against a real database.
+- Never read, print, edit, or overwrite `.env` files (`.env`, `.env.local`, `.env.*`).
+- The only allowed database commands are `npm run db:migrate` (development) and `npm run test`.
+- Live checks only on small throwaway trees that you create and delete yourself.
+- Stop all dev servers when finished.
+
+```bash
+# ❌ BAD
+neonctl branches delete dev
+psql "$DATABASE_URL" -c "DROP TABLE persons"
+# ✅ GOOD
+npm test
+npm run db:migrate
+```

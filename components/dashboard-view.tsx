@@ -1,12 +1,59 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { createTreeAction, deleteTreeAction, renameTreeAction, respondInviteAction } from "@/app/dashboard/actions";
 import { Button } from "@/components/button";
 import { Tooltip } from "@/components/tooltip";
 import type { TreeListItem } from "@/lib/tree-list";
+
+function ImportTreeButton() {
+  const input = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <input
+        ref={input}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (!file) return;
+          startTransition(async () => {
+            setError(null);
+            try {
+              const body = JSON.parse(await file.text()) as unknown;
+              const response = await fetch("/api/trees/import", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              const result = (await response.json()) as { id?: string; error?: string };
+              if (!response.ok || !result.id) {
+                setError(result.error ?? "Could not import that file.");
+                return;
+              }
+              router.push(`/tree/${result.id}`);
+            } catch {
+              setError("That file is not a tree export.");
+            }
+          });
+        }}
+      />
+      <Button tooltip="Create a new tree from a JSON export" variant="secondary" disabled={pending} onClick={() => input.current?.click()}>
+        {pending ? "Importing" : "Import JSON"}
+      </Button>
+      {error ? <p className="max-w-xs text-right text-sm text-danger">{error}</p> : null}
+    </div>
+  );
+}
 
 const visibilityLabel = {
   private: "Private",
@@ -30,9 +77,12 @@ export function DashboardView({
           <p className="text-xs tracking-[0.22em] text-muted uppercase">Your archive</p>
           <h1 className="mt-3 font-display text-5xl tracking-tight sm:text-6xl">Trees</h1>
         </div>
-        <Button tooltip="Start a new family tree" onClick={() => setCreating(true)}>
-          New tree
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ImportTreeButton />
+          <Button tooltip="Start a new family tree" onClick={() => setCreating(true)}>
+            New tree
+          </Button>
+        </div>
       </div>
 
       {invites.length > 0 ? <InviteList invites={invites} /> : null}
@@ -163,7 +213,7 @@ function TreeCard({ tree }: { tree: TreeListItem }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Tooltip content="Open the tree" side="bottom">
-            <Link href={`/tree/${tree.id}`} className="inline-flex h-11 items-center rounded-full bg-accent px-5 text-sm text-surface">
+            <Link href={`/tree/${tree.id}`} prefetch={false} className="inline-flex h-11 items-center rounded-full bg-accent px-5 text-sm text-surface">
               Open
             </Link>
           </Tooltip>

@@ -3,6 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 
 import { persons } from "@/lib/db/schema";
+import { invalidatePublicTree } from "./public-cache";
 import { isWebp, PHOTO_MAX_BYTES, PHOTO_MIME } from "@/lib/photos";
 
 import { requireTreeAdmin } from "./authz";
@@ -11,7 +12,7 @@ import { AuthzError } from "./errors";
 import { getPhotoStorage } from "./photo-storage";
 
 export async function savePersonPhoto(userId: string | null, personId: string, bytes: Uint8Array) {
-  const [person] = await getDb().select().from(persons).where(eq(persons.id, personId)).limit(1);
+  const [person] = await getDb().select({ treeId: persons.treeId }).from(persons).where(eq(persons.id, personId)).limit(1);
   if (!person) throw new AuthzError("Person not found.", "not_found");
   await requireTreeAdmin(userId, person.treeId);
 
@@ -28,12 +29,14 @@ export async function savePersonPhoto(userId: string | null, personId: string, b
     sizeBytes: bytes.byteLength,
   });
   await getDb().update(persons).set({ hasPhoto: true, updatedAt: new Date() }).where(eq(persons.id, personId));
+  invalidatePublicTree(person.treeId);
 }
 
 export async function removePersonPhoto(userId: string | null, personId: string) {
-  const [person] = await getDb().select().from(persons).where(eq(persons.id, personId)).limit(1);
+  const [person] = await getDb().select({ treeId: persons.treeId }).from(persons).where(eq(persons.id, personId)).limit(1);
   if (!person) throw new AuthzError("Person not found.", "not_found");
   await requireTreeAdmin(userId, person.treeId);
   await getPhotoStorage().delete(personId);
   await getDb().update(persons).set({ hasPhoto: false, updatedAt: new Date() }).where(eq(persons.id, personId));
+  invalidatePublicTree(person.treeId);
 }

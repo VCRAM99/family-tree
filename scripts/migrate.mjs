@@ -2,6 +2,8 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
+import { assertSafeDatabaseTarget } from "./db-guard.mjs";
+
 // Local: npm run db:migrate (reads .env.local).
 // Production, before or during a deploy to Neon main:
 //   DATABASE_URL_UNPOOLED="postgres://..." npm run db:migrate:prod
@@ -13,6 +15,7 @@ if (!connectionString) {
   process.exit(1);
 }
 
+assertSafeDatabaseTarget(connectionString);
 const pool = new pg.Pool({ connectionString });
 
 try {

@@ -5,6 +5,7 @@ import { getTreeRole } from "@/lib/server/authz";
 import { persons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/server/db";
+import { personGraphColumns } from "@/lib/server/person-columns";
 import { requireUser } from "@/lib/server/session";
 import { listSuggestions } from "@/lib/server/suggestions";
 
@@ -15,7 +16,7 @@ export default async function SuggestionsPage({ params }: { params: Promise<{ id
   if (!role) notFound();
   const [rows, people] = await Promise.all([
     listSuggestions(user.id, id),
-    getDb().select().from(persons).where(eq(persons.treeId, id)),
+    getDb().select(personGraphColumns).from(persons).where(eq(persons.treeId, id)),
   ]);
   const byId = new Map(people.map((person) => [person.id, person]));
   return (

@@ -4,12 +4,14 @@ import { and, eq, ilike, or, sql } from "drizzle-orm";
 
 import type { CustomFieldDef, PersonField, ThemeId } from "@/lib/domain";
 import { lookupBuckets, parentLinks, persons, trees, unions } from "@/lib/db/schema";
+import { personGraphColumns } from "@/lib/server/person-columns";
 import type { DatePrecision, GraphParentLink, GraphPerson, GraphUnion, Sex, TreeGraph, UnionStatus } from "@/lib/family-graph";
 import { preferredDisplayName } from "@/lib/family-graph";
 import { isThemeId } from "@/lib/themes";
 import { parseCustomFieldDefs } from "@/lib/validation";
 
 import { getDb } from "./db";
+import { cachedPublicTree, invalidatePublicTree } from "./public-cache";
 
 const LOOKUP_LIMIT = 30;
 
@@ -33,6 +35,7 @@ export const PUBLIC_PERSON_KEYS = [
   "occupation",
   "bio",
   "hasPhoto",
+  "photoVersion",
   "phoneWhatsapp",
   "email",
   "instagram",
@@ -104,6 +107,7 @@ type PersonSource = {
   facebook: string | null;
   customFields: GraphPerson["customFields"];
   isPlaceholder?: boolean;
+  photoVersion?: string | null;
 };
 
 /** One lookup per IP per minute. Over the limit looks the same as a miss. */
@@ -148,6 +152,7 @@ export function sanitizePublicPerson(person: PersonSource, policy: Policy): Grap
     occupation: show("occupation") ? person.occupation : null,
     bio: show("bio") ? person.bio : null,
     hasPhoto: !hidden && policy.photosEnabled && person.hasPhoto,
+    photoVersion: !hidden && policy.photosEnabled && person.hasPhoto ? (person.photoVersion ?? null) : null,
     phoneWhatsapp: !hidden && policy.socialsEnabled ? person.phoneWhatsapp : null,
     email: !hidden && policy.socialsEnabled ? person.email : null,
     instagram: !hidden && policy.socialsEnabled ? person.instagram : null,
@@ -180,7 +185,9 @@ export async function getPublicTreeByShareCode(code: string): Promise<PublicTree
 }
 
 export async function listPublicPersons(treeId: string): Promise<PublicPerson[]> {
-  const view = await readTreeView(treeId, ["public", "unlisted"]);
+  const access = await readAccess(treeId);
+  if (!access || !accessAllows(access, ["public", "unlisted"])) return [];
+  const view = await loadCachedPublicTree(treeId);
   if (!view) return [];
   return view.graph.persons.map((person) => ({
     id: person.id,
@@ -222,37 +229,105 @@ export async function publicPhotoAllowed(personId: string): Promise<boolean> {
   return wouldShowPhoto(row, row);
 }
 
+type AccessRow = { id: string; visibility: string; publicTag: string | null; shareCode: string };
+
+/** Visibility, tag, and share code are read on every request and never from the cache. */
+async function readAccess(treeId: string): Promise<AccessRow | null> {
+  const [tree] = await getDb()
+    .select({
+      id: trees.id,
+      visibility: trees.visibility,
+      publicTag: trees.publicTag,
+      shareCode: trees.shareCode,
+    })
+    .from(trees)
+    .where(eq(trees.id, treeId))
+    .limit(1);
+  return tree ?? null;
+}
+
+function accessAllows(tree: AccessRow, allowed: Array<"public" | "unlisted">): boolean {
+  return tree.visibility === "public" || tree.visibility === "unlisted" ? allowed.includes(tree.visibility) : false;
+}
+
 async function readByTag(tag: string): Promise<PublicTreeView | null> {
   const normalized = tag.trim().toLowerCase();
   if (!normalized) return null;
   const [tree] = await getDb()
-    .select({ id: trees.id })
+    .select({
+      id: trees.id,
+      visibility: trees.visibility,
+      publicTag: trees.publicTag,
+      shareCode: trees.shareCode,
+    })
     .from(trees)
-    .where(and(eq(trees.visibility, "public"), sql`lower(${trees.publicTag}) = ${normalized}`))
+    .where(sql`lower(${trees.publicTag}) = ${normalized}`)
     .limit(1);
-  if (!tree) return null;
-  return readTreeView(tree.id, ["public"]);
+  if (!tree || tree.visibility !== "public" || (tree.publicTag ?? "").toLowerCase() !== normalized) return null;
+  let view = await cachedPublicTree(tree.id, "public", () => readTreeView(tree.id, ["public"]));
+  if (!view || view.summary.publicTag?.toLowerCase() !== normalized || view.summary.visibility !== "public") {
+    invalidatePublicTree(tree.id);
+    view = await cachedPublicTree(tree.id, "public", () => readTreeView(tree.id, ["public"]));
+  }
+  if (!view || view.summary.publicTag?.toLowerCase() !== normalized || view.summary.visibility !== "public") return null;
+  return view;
 }
 
 async function readByCode(code: string): Promise<PublicTreeView | null> {
   const normalized = code.trim().toUpperCase();
   if (!/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(normalized)) return null;
   const [tree] = await getDb()
-    .select({ id: trees.id, visibility: trees.visibility })
+    .select({
+      id: trees.id,
+      visibility: trees.visibility,
+      publicTag: trees.publicTag,
+      shareCode: trees.shareCode,
+    })
     .from(trees)
     .where(eq(trees.shareCode, normalized))
     .limit(1);
-  if (!tree || tree.visibility === "private") return null;
-  return readTreeView(tree.id, ["public", "unlisted"]);
+  if (!tree || tree.shareCode.trim().toUpperCase() !== normalized || !accessAllows(tree, ["public", "unlisted"])) return null;
+  return cachedPublicTree(tree.id, "public+unlisted", () => readTreeView(tree.id, ["public", "unlisted"]));
+}
+
+/** Cached sanitized tree. A hit does not query the database. */
+export function loadCachedPublicTree(treeId: string): Promise<PublicTreeView | null> {
+  return cachedPublicTree(treeId, "public+unlisted", () => readTreeView(treeId, ["public", "unlisted"]));
 }
 
 async function readTreeView(treeId: string, allowed: Array<"public" | "unlisted">): Promise<PublicTreeView | null> {
   const [tree] = await getDb().select().from(trees).where(eq(trees.id, treeId)).limit(1);
   if (!tree || tree.visibility === "private" || !allowed.includes(tree.visibility as "public" | "unlisted")) return null;
   const [people, links, pairings] = await Promise.all([
-    getDb().select().from(persons).where(eq(persons.treeId, treeId)),
-    getDb().select().from(parentLinks).where(eq(parentLinks.treeId, treeId)),
-    getDb().select().from(unions).where(eq(unions.treeId, treeId)),
+    getDb()
+      .select({
+        ...personGraphColumns,
+        photoVersion: sql<string | null>`(select (floor(extract(epoch from person_photos.updated_at) * 1000))::text from person_photos where person_photos.person_id = ${persons.id})`,
+      })
+      .from(persons)
+      .where(eq(persons.treeId, treeId)),
+    getDb()
+      .select({
+        id: parentLinks.id,
+        parentId: parentLinks.parentId,
+        childId: parentLinks.childId,
+        kind: parentLinks.kind,
+        unionId: parentLinks.unionId,
+      })
+      .from(parentLinks)
+      .where(eq(parentLinks.treeId, treeId)),
+    getDb()
+      .select({
+        id: unions.id,
+        personAId: unions.personAId,
+        personBId: unions.personBId,
+        status: unions.status,
+        startDate: unions.startDate,
+        endDate: unions.endDate,
+        sortOrder: unions.sortOrder,
+      })
+      .from(unions)
+      .where(eq(unions.treeId, treeId)),
   ]);
   const policy: Policy = {
     hideLivingDetails: tree.hideLivingDetails,

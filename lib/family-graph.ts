@@ -25,6 +25,8 @@ export type GraphPerson = {
   occupation: string | null;
   bio: string | null;
   hasPhoto: boolean;
+  /** Photo cache buster from person_photos.updated_at. Null when there is no photo. */
+  photoVersion?: string | null;
   phoneWhatsapp: string | null;
   email: string | null;
   instagram: string | null;
