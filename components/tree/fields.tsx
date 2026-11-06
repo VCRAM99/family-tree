@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Autosuggest } from "@/components/autosuggest";
 import type { AutosaveStatus } from "@/lib/autosave";
 import { useAutosave } from "@/lib/use-autosave";
 import { Button } from "@/components/button";
@@ -27,6 +28,7 @@ export function TextField({
   onStatus,
   autoFocus = false,
   autosave = true,
+  suggest,
 }: {
   label: string;
   value: string;
@@ -38,6 +40,7 @@ export function TextField({
   onSave: (value: string) => Promise<void>;
   onStatus?: (status: AutosaveStatus) => void;
   autosave?: boolean;
+  suggest?: (value: string) => string[];
 }) {
   const [local, setLocal] = useState(value);
   const [seen, setSeen] = useState(value);
@@ -87,6 +90,8 @@ export function TextField({
       className={`${inputClass} py-3`}
       onChange={(event) => change(event.target.value)}
     />
+  ) : suggest ? (
+    <Autosuggest label={label} value={local} autoFocus={autoFocus} placeholder={placeholder} suggestions={suggest(local)} onChange={change} />
   ) : (
     <input
       value={local}

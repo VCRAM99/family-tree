@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { removePersonPhotoAction, uploadPersonPhoto } from "@/app/photos/actions";
 import { Button } from "@/components/button";
 import { SelectField, TextField } from "@/components/tree/fields";
+import { LocationField } from "@/components/tree/location-field";
 import { Tooltip } from "@/components/tooltip";
 import type { CustomFieldDef } from "@/lib/domain";
 import type { DatePrecision, GraphPerson, Sex } from "@/lib/family-graph";
@@ -17,6 +18,7 @@ import { ageLabel, facebookHref, formatLifeDate, instagramHref, whatsAppHref } f
 import type { PersonPatch } from "@/lib/person-edits";
 import type { AutosaveStatus } from "@/lib/autosave";
 import { useAutosave } from "@/lib/use-autosave";
+import { nameSuggestions, treePlaceValues } from "@/lib/suggestions";
 import { contactError } from "@/lib/validation";
 
 const sexes: { value: Sex; label: string }[] = [
@@ -28,6 +30,7 @@ const sexes: { value: Sex; label: string }[] = [
 
 export function PersonCard({
   person,
+  people = [],
   editing,
   photosEnabled,
   socialsEnabled,
@@ -43,6 +46,7 @@ export function PersonCard({
   onPhoto,
 }: {
   person: GraphPerson;
+  people?: GraphPerson[];
   editing: boolean;
   photosEnabled: boolean;
   socialsEnabled: boolean;
@@ -65,6 +69,10 @@ export function PersonCard({
   const age = ageLabel(person);
   const life = [birth, death].filter(Boolean).join(" – ");
   const isMe = viewerPersonId === person.id;
+  const locationKeys = customFieldDefs.filter((field) => field.type === "location").map((field) => field.key);
+  const places = treePlaceValues(people, locationKeys);
+  const suggestName = (field: "firstName" | "middleName" | "lastName" | "preferredName" | "birthSurname") => (typed: string) =>
+    nameSuggestions(people, field, typed);
 
   return (
     <motion.article
@@ -82,14 +90,15 @@ export function PersonCard({
                 value={person.firstName}
                 editing
                 autoFocus={person.pending}
+                suggest={suggestName("firstName")}
                 validate={(value) => (value.trim() ? null : "A first name is required.")}
                 onSave={(value) => onPersist({ firstName: value })}
                 onStatus={onStatus} autosave={autosave}
               />
-              <TextField label="Preferred name" value={person.preferredName ?? ""} editing onSave={(value) => onPersist({ preferredName: value })} onStatus={onStatus} autosave={autosave} />
-              <TextField label="Middle name" value={person.middleName ?? ""} editing onSave={(value) => onPersist({ middleName: value })} onStatus={onStatus} autosave={autosave} />
-              <TextField label="Last name" value={person.lastName ?? ""} editing onSave={(value) => onPersist({ lastName: value })} onStatus={onStatus} autosave={autosave} />
-              <TextField label="Birth surname" value={person.birthSurname ?? ""} editing onSave={(value) => onPersist({ birthSurname: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Preferred name" value={person.preferredName ?? ""} editing suggest={suggestName("preferredName")} onSave={(value) => onPersist({ preferredName: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Middle name" value={person.middleName ?? ""} editing suggest={suggestName("middleName")} onSave={(value) => onPersist({ middleName: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Last name" value={person.lastName ?? ""} editing suggest={suggestName("lastName")} onSave={(value) => onPersist({ lastName: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Birth surname" value={person.birthSurname ?? ""} editing suggest={suggestName("birthSurname")} onSave={(value) => onPersist({ birthSurname: value })} onStatus={onStatus} autosave={autosave} />
             </div>
           ) : (
             <>
@@ -182,9 +191,9 @@ export function PersonCard({
         ) : person.isDeceased && !death ? (
           <p className="text-muted">Deceased</p>
         ) : null}
-        <TextField label="Birth place" value={person.birthPlace ?? ""} editing={editing} onSave={(value) => onPersist({ birthPlace: value })} onStatus={onStatus} autosave={autosave} />
-        <TextField label="Native place" value={person.nativePlace ?? ""} editing={editing} onSave={(value) => onPersist({ nativePlace: value })} onStatus={onStatus} autosave={autosave} />
-        <TextField label="Current place" value={person.currentLocation ?? ""} editing={editing} onSave={(value) => onPersist({ currentLocation: value })} onStatus={onStatus} autosave={autosave} />
+        <LocationField label="Birth place" value={person.birthPlace ?? ""} places={places} editing={editing} onSave={(value) => onPersist({ birthPlace: value })} onStatus={onStatus} autosave={autosave} />
+        <LocationField label="Native place" value={person.nativePlace ?? ""} places={places} editing={editing} birthPlace={person.birthPlace ?? ""} sameAsBirth onSave={(value) => onPersist({ nativePlace: value })} onStatus={onStatus} autosave={autosave} />
+        <LocationField label="Current place" value={person.currentLocation ?? ""} places={places} editing={editing} onSave={(value) => onPersist({ currentLocation: value })} onStatus={onStatus} autosave={autosave} />
         <TextField label="Occupation" value={person.occupation ?? ""} editing={editing} onSave={(value) => onPersist({ occupation: value })} onStatus={onStatus} autosave={autosave} />
       </div>
 
@@ -195,7 +204,7 @@ export function PersonCard({
       {customFieldDefs.length > 0 ? (
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
           {customFieldDefs.map((field) => (
-            <CustomValue key={field.key} field={field} person={person} editing={editing} onPersist={onPersist} onStatus={onStatus} autosave={autosave} />
+            <CustomValue key={field.key} field={field} person={person} places={places} editing={editing} onPersist={onPersist} onStatus={onStatus} autosave={autosave} />
           ))}
         </div>
       ) : null}
@@ -335,6 +344,7 @@ function ContactLinks({ person }: { person: GraphPerson }) {
 function CustomValue({
   field,
   person,
+  places,
   editing,
   onPersist,
   onStatus,
@@ -342,6 +352,7 @@ function CustomValue({
 }: {
   field: CustomFieldDef;
   person: GraphPerson;
+  places: string[];
   editing: boolean;
   onPersist: (patch: PersonPatch) => Promise<void>;
   onStatus: (status: AutosaveStatus) => void;
@@ -356,6 +367,21 @@ function CustomValue({
         value={value}
         editing={editing}
         options={[{ value: "", label: "—" }, ...(field.options ?? []).map((option) => ({ value: option, label: option }))]}
+        onSave={(next) => onPersist({ customFields: { [field.key]: next || null } })}
+        onStatus={onStatus}
+        autosave={autosave}
+      />
+    );
+  }
+  if (field.type === "location") {
+    return (
+      <LocationField
+        label={field.label}
+        value={value}
+        places={places}
+        editing={editing}
+        birthPlace={person.birthPlace ?? ""}
+        sameAsBirth
         onSave={(next) => onPersist({ customFields: { [field.key]: next || null } })}
         onStatus={onStatus}
         autosave={autosave}

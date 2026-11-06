@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@/components/button";
 import { Tooltip } from "@/components/tooltip";
 import type { Sex } from "@/lib/family-graph";
 import { preferredDisplayName, type TreeGraph } from "@/lib/family-graph";
@@ -28,6 +27,7 @@ export function TreeSearch({
   onSelect: (personId: string) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const hits = useMemo(() => searchPeople(graph, generations, filters, query, viewerId), [filters, generations, graph, query, viewerId]);
@@ -47,13 +47,30 @@ export function TreeSearch({
         event.preventDefault();
         input.current?.focus();
       }
+      if (event.key === "Escape" && open) {
+        setOpen(false);
+        setShowFilters(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panel.current?.contains(target) || input.current === target) return;
+      setOpen(false);
+      setShowFilters(false);
+    }
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [open]);
 
   return (
-    <div className="relative w-full sm:w-80">
+    <div ref={panel} className="relative w-full sm:w-80" data-dismissable-open={open ? "" : undefined}>
       <input
         ref={input}
         value={query}
@@ -67,12 +84,16 @@ export function TreeSearch({
       {open ? (
       <div className="fixed inset-x-0 bottom-0 z-30 max-h-[70dvh] overflow-auto rounded-t-3xl border border-border bg-surface p-4 shadow-lg sm:absolute sm:inset-auto sm:top-[calc(100%+8px)] sm:max-h-96 sm:w-full sm:rounded-3xl">
         <div className="flex items-center justify-between">
-          <Button tooltip="Filter by place, name, life, sex, decade, or generation" variant="ghost" onClick={() => setShowFilters((value) => !value)}>
+          <button type="button" className="h-9 rounded-full px-3 text-sm text-text" onClick={() => setShowFilters((value) => !value)}>
             Filters
-          </Button>
-          <Button tooltip="Close search" variant="ghost" onClick={() => setOpen(false)}>
-            Close
-          </Button>
+          </button>
+          <Tooltip content="Close search">
+            <button type="button" aria-label="Close search" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-text" onClick={() => setOpen(false)}>
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M4 4 L12 12 M12 4 L4 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
         {showFilters ? (
           <div className="mt-3 grid gap-2">
@@ -130,9 +151,9 @@ export function TreeSearch({
               </select>
             </label>
             {filtersActive(filters) ? (
-              <Button tooltip="Clear filters" variant="ghost" onClick={() => onFilters(emptyFilters)}>
+              <button type="button" className="h-9 self-start rounded-full px-3 text-sm text-text" onClick={() => onFilters(emptyFilters)}>
                 Clear
-              </Button>
+              </button>
             ) : null}
           </div>
         ) : null}
@@ -141,12 +162,10 @@ export function TreeSearch({
             const name = preferredDisplayName(hit.person);
             return (
               <li key={hit.person.id}>
-                <Tooltip content={`Open ${name}`} className="w-full">
-                  <button type="button" className="flex w-full items-baseline justify-between gap-3 rounded-2xl px-3 py-3 text-left hover:bg-background" onClick={() => onSelect(hit.person.id)}>
-                    <span>{name}</span>
-                    <span className="text-xs text-muted">{[hit.lifeYears, hit.relationship].filter(Boolean).join(" · ")}</span>
-                  </button>
-                </Tooltip>
+                <button type="button" className="flex w-full items-baseline justify-between gap-3 rounded-2xl px-3 py-3 text-left hover:bg-background" onClick={() => onSelect(hit.person.id)}>
+                  <span>{name}</span>
+                  <span className="text-xs text-muted">{[hit.lifeYears, hit.relationship].filter(Boolean).join(" · ")}</span>
+                </button>
               </li>
             );
           })}

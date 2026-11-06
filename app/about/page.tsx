@@ -13,6 +13,13 @@ export default function AboutPage() {
       <p className="mt-6 text-base leading-relaxed text-muted">
         Family Tree keeps a private record of the people who made you. Share a public page, send an unlisted code, or invite someone to help tend the tree.
       </p>
+      <p className="mt-6 text-sm leading-relaxed text-muted">
+        Place suggestions include cities with a population over 15,000 from{" "}
+        <a href="https://www.geonames.org/" className="underline decoration-border underline-offset-4">
+          GeoNames
+        </a>
+        , used under CC BY 4.0.
+      </p>
       <Link href="/" className="mt-8 inline-flex h-11 items-center self-start rounded-full bg-accent px-5 text-sm text-surface">
         Back home
       </Link>

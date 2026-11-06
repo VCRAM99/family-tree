@@ -16,7 +16,7 @@ export const createTreeSchema = z.object({
   description: treeDescriptionSchema,
 });
 
-export const customFieldTypeSchema = z.enum(["text", "long_text", "number", "date", "url", "select"]);
+export const customFieldTypeSchema = z.enum(["text", "long_text", "number", "date", "url", "select", "location"]);
 
 export const customFieldDefSchema = z
   .object({
@@ -171,7 +171,7 @@ export function customFieldsError(defs: CustomFieldDef[], values: CustomFieldVal
       const options = definition.options ?? [];
       if (typeof value !== "string" || !options.includes(value)) return `Choose a value for ${definition.label}.`;
     }
-    if ((definition.type === "text" || definition.type === "long_text") && typeof value === "string") {
+    if ((definition.type === "text" || definition.type === "long_text" || definition.type === "location") && typeof value === "string") {
       const max = definition.type === "long_text" ? 8000 : 500;
       if (value.length > max) return `Keep ${definition.label} shorter.`;
     }

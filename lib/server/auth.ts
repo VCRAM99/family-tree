@@ -32,6 +32,13 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     autoSignIn: false,
+    onExistingUserSignUp: async ({ user: accountUser }, request) => {
+      if (accountUser.emailVerified) return;
+      await auth.api.sendVerificationEmail({
+        body: { email: accountUser.email, callbackURL: "/" },
+        headers: request?.headers ?? new Headers(),
+      });
+    },
     sendResetPassword: async ({ user: accountUser, url }) => {
       const message = brandedEmail({
         subject: "Reset your Family Tree password",

@@ -156,6 +156,7 @@ function TreeScreen(props: TreeScreenData) {
       const target = event.target;
       const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
       if (event.key === "Escape") {
+        if (document.querySelector("[data-dismissable-open]")) return;
         if (dialog) {
           setDialog(null);
           return;
@@ -385,7 +386,7 @@ function TreeScreen(props: TreeScreenData) {
   }, [filters, generations, graph]);
 
   return (
-    <main className={view === "tree" ? "flex h-full min-h-0 flex-col px-3 sm:px-4" : "mx-auto w-full max-w-6xl px-4 pb-24 sm:px-8"}>
+    <main className={view === "tree" ? "flex h-full min-h-0 flex-col overflow-hidden px-3 sm:px-4" : "mx-auto h-full w-full max-w-6xl overflow-auto px-4 pb-24 sm:px-8"}>
       {editing && props.canEdit ? (
         <SaveFab
           icon={summary === "saving" ? "spinner" : summary === "unsaved" || summary === "invalid" || summary === "retry" ? "floppy" : "check"}
@@ -482,6 +483,7 @@ function TreeScreen(props: TreeScreenData) {
             <PersonCard
               key={formInstanceKey(person)}
               person={person}
+              people={graph.persons}
               editing={editing && props.canEdit}
               photosEnabled={props.photosEnabled}
               socialsEnabled={props.socialsEnabled}

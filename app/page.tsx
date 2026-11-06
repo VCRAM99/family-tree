@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { AuthPanel } from "@/components/auth-panel";
 import { LazySplashTree } from "@/components/lazy-splash-tree";
-import { TreeLookup } from "@/components/tree-lookup";
 import { safeNextPath } from "@/lib/paths";
 import { getCurrentUser } from "@/lib/server/session";
 
@@ -32,7 +31,6 @@ export default async function HomePage({
         </div>
         <section className="order-1 lg:order-2">
           <AuthPanel nextPath={params.next} initialMode={params.mode === "sign-up" ? "sign-up" : "sign-in"} />
-          <TreeLookup />
         </section>
       </div>
     </main>

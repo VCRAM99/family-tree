@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/button";
+import { TreeLookup } from "@/components/tree-lookup";
 import { authClient } from "@/lib/auth-client";
 import { safeNextPath } from "@/lib/paths";
 
-type Mode = "sign-in" | "sign-up";
+type Mode = "sign-in" | "sign-up" | "view";
 
 export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: string; initialMode?: Mode }) {
   const router = useRouter();
@@ -19,11 +20,13 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [unverified, setUnverified] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setNotice(null);
+    setUnverified(false);
     setPending(true);
     try {
       if (mode === "sign-up") {
@@ -52,6 +55,7 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
       });
       if (result.error) {
         if (result.error.status === 403) {
+          setUnverified(true);
           setError(
             process.env.NODE_ENV === "development"
               ? "Verify your email before signing in. A fresh link is on its way — check the server console if you are developing locally."
@@ -71,33 +75,33 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
 
   return (
     <div className="flex w-full max-w-md flex-col">
-      <div className="mb-8 flex gap-6 text-sm">
-        <Button
-          tooltip="Sign in with email"
-          variant={mode === "sign-in" ? "primary" : "ghost"}
-          className="h-9 px-0"
-          onClick={() => {
-            setMode("sign-in");
-            setError(null);
-            setNotice(null);
-          }}
-        >
-          Sign in
-        </Button>
-        <Button
-          tooltip="Create a new account"
-          variant={mode === "sign-up" ? "primary" : "ghost"}
-          className="h-9 px-0"
-          onClick={() => {
-            setMode("sign-up");
-            setError(null);
-            setNotice(null);
-          }}
-        >
-          Create account
-        </Button>
+      <div role="tablist" aria-label="How to continue" className="mb-8 grid grid-cols-3 gap-1 rounded-full border border-border bg-surface p-1">
+        {(
+          [
+            ["sign-in", "Sign in", "Sign in with email"],
+            ["sign-up", "Create account", "Create a new account"],
+            ["view", "View a tree", "Open a tree with a code or public tag"],
+          ] as const
+        ).map(([id, label, tip]) => (
+          <Button
+            key={id}
+            tooltip={tip}
+            variant={mode === id ? "primary" : "ghost"}
+            className="h-10 px-2 text-xs sm:text-sm"
+            aria-selected={mode === id}
+            onClick={() => {
+              setMode(id);
+              setError(null);
+              setNotice(null);
+              setUnverified(false);
+            }}
+          >
+            {label}
+          </Button>
+        ))}
       </div>
 
+      {mode === "view" ? <TreeLookup embedded /> : (
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         {mode === "sign-up" ? (
           <label className="flex flex-col gap-2 text-sm">
@@ -135,6 +139,26 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
           />
         </label>
         {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {unverified ? (
+          <Button
+            tooltip="Send another verification email"
+            variant="secondary"
+            disabled={pending}
+            onClick={() => {
+              setPending(true);
+              setNotice(null);
+              void authClient
+                .sendVerificationEmail({ email: email.trim(), callbackURL: destination })
+                .then((result) => {
+                  if (result.error) setNotice("Please wait a minute before asking for another email.");
+                  else setNotice("If this address still needs verification, a new link is on its way.");
+                })
+                .finally(() => setPending(false));
+            }}
+          >
+            Resend verification email
+          </Button>
+        ) : null}
         {notice ? <p className="text-sm leading-relaxed text-muted">{notice}</p> : null}
         <Button
           tooltip={mode === "sign-up" ? "Create your account and send a verification email" : "Sign in to your trees"}
@@ -144,17 +168,18 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
         >
           {pending ? "Please wait" : mode === "sign-up" ? "Create account" : "Sign in"}
         </Button>
+        <div className="mt-4">
+          <Button
+            tooltip="Email yourself a password reset link"
+            variant="ghost"
+            className="h-9 px-0"
+            onClick={() => router.push("/forgot-password")}
+          >
+            Forgot password
+          </Button>
+        </div>
       </form>
-      <div className="mt-4">
-        <Button
-          tooltip="Email yourself a password reset link"
-          variant="ghost"
-          className="h-9 px-0"
-          onClick={() => router.push("/forgot-password")}
-        >
-          Forgot password
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

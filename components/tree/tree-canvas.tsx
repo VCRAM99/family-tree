@@ -1,11 +1,11 @@
 "use client";
 
 import { MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, useViewport, type Edge, type Node } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "@xyflow/react/dist/style.css";
 
-import { Button } from "@/components/button";
 import { CanvasContext, type CanvasChrome, type CanvasLod } from "@/components/tree/canvas-context";
+import { Tooltip } from "@/components/tooltip";
 import type { AddRole } from "@/components/tree/family-column";
 import { FocusChrome } from "@/components/tree/focus-chrome";
 import { JunctionNode, PersonNode } from "@/components/tree/person-node";
@@ -114,6 +114,8 @@ function CanvasSurface(props: {
           data: {},
           draggable: false,
           selectable: false,
+          width: hidden ? 1 : PERSON_WIDTH,
+          height: hidden ? 1 : PERSON_HEIGHT,
           style: hidden ? { width: 1, height: 1 } : { width: PERSON_WIDTH, height: PERSON_HEIGHT },
         },
       ];
@@ -180,6 +182,7 @@ function CanvasSurface(props: {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onlyRenderVisibleElements
+            proOptions={{ hideAttribution: true }}
             minZoom={0.08}
             maxZoom={1.75}
             panOnScroll
@@ -187,11 +190,24 @@ function CanvasSurface(props: {
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}
+            onPaneClick={() => props.onExitFocus()}
             onNodeClick={(_, node) => {
               if (!isJunctionId(node.id)) props.onFocus(node.id);
             }}
           >
-            {showMap ? <MiniMap pannable zoomable /> : null}
+            {showMap ? (
+              <MiniMap
+                pannable
+                zoomable
+                ariaLabel="Tree map"
+                position="bottom-left"
+                bgColor="var(--surface)"
+                maskColor="color-mix(in srgb, var(--text) 18%, transparent)"
+                nodeColor="var(--accent)"
+                nodeStrokeWidth={0}
+                style={{ width: 168, height: 112, marginBottom: 64, marginLeft: 12 }}
+              />
+            ) : null}
           </ReactFlow>
         ) : (
           <LayoutSkeleton />
@@ -199,28 +215,26 @@ function CanvasSurface(props: {
         {props.focused && props.personId ? (
           <FocusChrome personId={props.personId} index={index} positions={layout?.positions} editing={props.editing} onNavigate={props.onFocus} onAdd={props.onAdd} />
         ) : null}
-        <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 flex max-h-[calc(100%-1.5rem)] flex-row items-center gap-0.5 overflow-auto rounded-full border border-border bg-surface/95 p-1 shadow-sm [@media(max-width:240px)]:flex-col">
-          <Button tooltip="Zoom in" variant="ghost" className="h-9 w-9 px-0" onClick={() => void flow.zoomIn({ duration: 180 })}>
+        <div className="canvas-controls absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 flex flex-row items-center overflow-hidden rounded-full border border-border bg-surface/95 shadow-sm">
+          <CanvasButton tooltip="Zoom in" onClick={() => void flow.zoomIn({ duration: 180 })}>
             +
-          </Button>
-          <Button tooltip="Zoom out" variant="ghost" className="h-9 w-9 px-0" onClick={() => void flow.zoomOut({ duration: 180 })}>
+          </CanvasButton>
+          <CanvasButton tooltip="Zoom out" onClick={() => void flow.zoomOut({ duration: 180 })}>
             −
-          </Button>
-          <Button tooltip="Fit to view" variant="ghost" className="h-9 w-9 px-0" onClick={() => void flow.fitView({ padding: 0.18, duration: 400 })}>
+          </CanvasButton>
+          <CanvasButton tooltip="Fit to view" onClick={() => void flow.fitView({ padding: 0.18, duration: 400 })}>
             <FitIcon />
-          </Button>
-          <Button
+          </CanvasButton>
+          <CanvasButton
             tooltip={props.viewerId ? "Center on me" : "Mark someone as you from their card"}
-            variant="ghost"
-            className="h-9 w-9 px-0"
             disabled={!props.viewerId}
             onClick={() => props.viewerId && props.onFocus(props.viewerId)}
           >
             <MeIcon />
-          </Button>
-          <Button tooltip={showMap ? "Hide the minimap" : "Show the minimap"} variant="ghost" className="h-9 w-9 px-0" onClick={() => setShowMap((value) => !value)}>
+          </CanvasButton>
+          <CanvasButton tooltip={showMap ? "Hide the minimap" : "Show the minimap"} pressed={showMap} onClick={() => setShowMap((value) => !value)}>
             <MapIcon />
-          </Button>
+          </CanvasButton>
         </div>
       </div>
     </CanvasContext.Provider>
@@ -256,6 +270,35 @@ function SkeletonCard() {
   );
 }
 
+function CanvasButton({
+  tooltip,
+  pressed = false,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  tooltip: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <button
+        type="button"
+        aria-label={tooltip}
+        aria-pressed={pressed}
+        disabled={disabled}
+        className={`inline-flex h-10 w-10 items-center justify-center text-base text-text outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent disabled:opacity-40 ${pressed ? "bg-background" : ""}`}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
+}
+
 function FitIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
@@ -275,8 +318,9 @@ function MeIcon() {
 
 function MapIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M2 4 L6 2.5 L10 4 L14 2.5 V12 L10 13.5 L6 12 L2 13.5 Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2 4 L6 2.5 L10 4 L14 2.5 V12 L10 13.5 L6 12 L2 13.5 Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M6 2.5 V12 M10 4 V13.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
 }

@@ -41,7 +41,7 @@ export const NODE_EXTRA_FIELDS = ["birth_place", "native_place", "current_locati
 
 export const MAX_NODE_EXTRA_LINES = 2;
 
-export type CustomFieldType = "text" | "long_text" | "number" | "date" | "url" | "select";
+export type CustomFieldType = "text" | "long_text" | "number" | "date" | "url" | "select" | "location";
 
 export type CustomFieldDef = {
   key: string;

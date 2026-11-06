@@ -28,7 +28,7 @@ export function PublicTreeScreen({
   const signIn = `/?next=${encodeURIComponent(basePath)}`;
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center justify-between gap-4 px-6 py-5 sm:px-10">
         <div>
           <p className="text-xs tracking-[0.22em] text-muted uppercase">{view.summary.visibility === "public" ? "Public" : "Unlisted"}</p>
@@ -50,7 +50,7 @@ export function PublicTreeScreen({
           )}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <Suspense>
           <TreeExperience
             id={view.summary.id}

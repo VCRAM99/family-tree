@@ -12,11 +12,21 @@ export type OutboundEmail = {
 
 export type EmailKind = "verification" | "reset" | "invite" | "suggestion";
 
+const testOutbox: OutboundEmail[] = [];
+
+export function drainTestOutbox(): OutboundEmail[] {
+  return testOutbox.splice(0, testOutbox.length);
+}
+
 /**
  * Sends mail through Resend. Production without a key fails without logging
  * the message. Development without a key prints the message for local use.
  */
 export async function sendEmail(email: OutboundEmail): Promise<boolean> {
+  if (process.env.VITEST && process.env.NODE_ENV !== "production") {
+    testOutbox.push(email);
+    return true;
+  }
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     if (process.env.NODE_ENV === "development") {

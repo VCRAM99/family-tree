@@ -20,6 +20,7 @@ export default async function SuggestionsPage({ params }: { params: Promise<{ id
   ]);
   const byId = new Map(people.map((person) => [person.id, person]));
   return (
+    <div className="h-full overflow-auto">
     <SuggestionInbox
       treeId={id}
       suggestions={rows.map((row) => {
@@ -38,6 +39,7 @@ export default async function SuggestionsPage({ params }: { params: Promise<{ id
         };
       })}
     />
+    </div>
   );
 }
 

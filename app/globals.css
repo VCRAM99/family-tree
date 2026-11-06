@@ -13,6 +13,7 @@
   --color-mother: var(--mother);
   --color-add: var(--add);
   --color-danger: var(--danger);
+  --color-success: var(--success);
 }
 
 :root,
@@ -28,6 +29,7 @@
   --mother: #9a3458;
   --add: #2d7a49;
   --danger: #a33b32;
+  --success: #146c3a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +45,7 @@
     --mother: #f0a8bf;
     --add: #8fce9e;
     --danger: #f0a097;
+    --success: #8fce9e;
   }
 }
 
@@ -57,6 +60,7 @@
   --mother: #f0a8bf;
   --add: #8fce9e;
   --danger: #f0a097;
+  --success: #8fce9e;
 }
 
 [data-theme="papyrus"] {
@@ -70,6 +74,7 @@
   --mother: #8a3d4e;
   --add: #3d6b45;
   --danger: #8e3b32;
+  --success: #1e5c32;
 }
 
 [data-theme="dark-paper"] {
@@ -83,6 +88,7 @@
   --mother: #e09aaf;
   --add: #8fbf8a;
   --danger: #e08a80;
+  --success: #8fce9e;
 }
 
 [data-theme="sepia-archive"] {
@@ -96,6 +102,7 @@
   --mother: #8d5a66;
   --add: #4f6b45;
   --danger: #8a4038;
+  --success: #2a5a32;
 }
 
 [data-theme="blueprint"] {
@@ -109,6 +116,7 @@
   --mother: #f3b4c8;
   --add: #9ddeaf;
   --danger: #ffb4a8;
+  --success: #9ddeaf;
 }
 
 [data-theme="sage-botanical"] {
@@ -122,6 +130,7 @@
   --mother: #8a3f5c;
   --add: #2f7a45;
   --danger: #9a4038;
+  --success: #1f6b3a;
 }
 
 * {
@@ -150,6 +159,10 @@ body {
   outline-offset: 3px;
 }
 
+.canvas-controls :focus-visible {
+  outline-offset: 0;
+}
+
 .react-flow__node,
 .react-flow__node:focus,
 .react-flow__node:focus-visible,
@@ -171,6 +184,20 @@ body {
 .react-flow,
 .react-flow__background {
   background: transparent;
+}
+
+.react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.react-flow__minimap svg {
+  display: block;
+}
+
+.react-flow__attribution {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

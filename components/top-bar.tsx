@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/sign-out-button";
+import { TreeMark } from "@/components/tree-mark";
 import { Tooltip } from "@/components/tooltip";
 import type { SessionUser } from "@/lib/server/auth";
 
@@ -8,7 +9,8 @@ export function TopBar({ user, suggestions }: { user: SessionUser; suggestions?:
   return (
     <header className="flex items-center justify-between gap-6 px-6 py-5 sm:px-10">
       <Tooltip content="Back to your trees" side="bottom">
-        <Link href="/dashboard" className="font-display text-2xl tracking-tight text-text">
+        <Link href="/dashboard" className="inline-flex items-center gap-2 font-display text-2xl tracking-tight text-text">
+          <TreeMark className="h-7 w-7 text-accent" />
           Family Tree
         </Link>
       </Tooltip>

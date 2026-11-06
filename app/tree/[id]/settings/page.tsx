@@ -38,5 +38,9 @@ export default async function TreeSettingsPage({ params }: { params: Promise<{ i
   };
 
   const admins = role === "owner" ? await listTreeAdmins(user.id, id) : [];
-  return <SettingsForm tree={settings} admins={admins} />;
+  return (
+    <div className="h-full overflow-auto">
+      <SettingsForm tree={settings} admins={admins} />
+    </div>
+  );
 }

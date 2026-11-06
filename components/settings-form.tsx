@@ -6,6 +6,7 @@ import { checkPublicTagAction, regenerateShareCodeAction, saveSettingsAction } f
 import { AdminManager, type AdminRow } from "@/components/admin-manager";
 import { Button } from "@/components/button";
 import { Tooltip } from "@/components/tooltip";
+import { CsvData } from "@/components/csv-data";
 import { SaveFab } from "@/components/save-fab";
 import type { CustomFieldDef, CustomFieldType } from "@/lib/domain";
 import { PERSON_FIELD_LABELS, PERSON_FIELDS, type PersonField, type ThemeId } from "@/lib/themes";
@@ -257,7 +258,7 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
         <section className="mt-12">
           <h2 className="font-display text-3xl">Custom fields</h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-            Extra details that show on each person’s card. Text, date, or a list of choices.
+            Extra details that show on each person’s card. Text, date, location, or a list of choices.
           </p>
           <ul className="mt-5 flex flex-col gap-3">
             {customFieldDefs.map((field) => (
@@ -271,14 +272,15 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
                 />
                 <select
                   aria-label="Field type"
-                  value={field.type === "text" || field.type === "date" || field.type === "select" ? field.type : field.type}
+                  value={field.type === "text" || field.type === "date" || field.type === "location" || field.type === "select" ? field.type : field.type}
                   onChange={(event) => updateCustom(field.key, { type: event.target.value as CustomFieldType })}
                   className="h-12 rounded-2xl border border-border bg-background px-3"
                 >
                   <option value="text">Text</option>
                   <option value="date">Date</option>
+                  <option value="location">Location</option>
                   <option value="select">Select</option>
-                  {field.type !== "text" && field.type !== "date" && field.type !== "select" ? (
+                  {field.type !== "text" && field.type !== "date" && field.type !== "location" && field.type !== "select" ? (
                     <option value={field.type}>{field.type}</option>
                   ) : null}
                 </select>
@@ -318,6 +320,8 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
             Add field
           </Button>
         </section>
+
+        {isOwner ? <CsvData treeId={tree.id} treeName={name} /> : null}
 
         {isOwner ? (
           <section className="mt-10 flex flex-col gap-3">

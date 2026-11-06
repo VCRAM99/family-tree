@@ -19,9 +19,9 @@ export default async function TreeLayout({
   const suggestionCount = await pendingSuggestionCount(user.id, id);
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <TopBar user={user} suggestions={{ href: `/tree/${id}/suggestions`, count: suggestionCount }} />
-      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
     </div>
   );
 }
