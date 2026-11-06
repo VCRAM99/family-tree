@@ -1,13 +1,14 @@
 import { AccountForm } from "@/components/account-form";
 import { TopBar } from "@/components/top-bar";
-import { requireUser } from "@/lib/server/session";
+import { getCurrentUser } from "@/lib/server/session";
+import { resolveDocumentTheme } from "@/lib/server/theme";
 
 export default async function AccountPage() {
-  const user = await requireUser();
+  const [user, theme] = await Promise.all([getCurrentUser(), resolveDocumentTheme()]);
   return (
     <>
-      <TopBar user={user} />
-      <AccountForm name={user.name} email={user.email} />
+      {user ? <TopBar user={user} /> : null}
+      <AccountForm name={user?.name ?? ""} email={user?.email ?? ""} theme={theme} signedIn={Boolean(user)} />
     </>
   );
 }

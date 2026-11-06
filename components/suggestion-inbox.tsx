@@ -62,7 +62,7 @@ function SuggestionCard({ treeId, row }: { treeId: string; row: Row }) {
   }
 
   return (
-    <li className="rounded-[2rem] border border-border bg-surface p-6">
+    <li className="rounded-4xl border border-border bg-surface p-6">
       <p className="text-xs tracking-[0.16em] text-muted uppercase">{label(row.type)} · {row.status}</p>
       <p className="mt-2 text-sm">
         {row.submitterName} · {row.submitterEmail}

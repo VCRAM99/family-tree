@@ -10,7 +10,7 @@ import { contactError, createSuggestionSchema } from "@/lib/validation";
 
 import { requireTreeAdmin } from "./authz";
 import { getDb } from "./db";
-import { sendEmail } from "./email";
+import { deliverEmail } from "./email";
 import { brandedEmail } from "./email-templates";
 import { AuthzError } from "./errors";
 import { createPersonWithRelation, updatePerson, type WriteExecutor } from "./person-writes";
@@ -101,9 +101,7 @@ export async function createSuggestion(
         paragraphs: [`Someone suggested a change on ${tree.name}.`],
         action: { label: "Review suggestions", href },
       });
-      void sendEmail({ to: owner.email, ...message }).catch((error: unknown) => {
-        console.error("[email] suggestion notice failed", error);
-      });
+      deliverEmail("suggestion", { to: owner.email, ...message });
     }
   }
 

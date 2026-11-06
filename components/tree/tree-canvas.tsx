@@ -151,45 +151,6 @@ function CanvasSurface(props: {
     void flow.setCenter(point.x + point.width / 2, point.y + point.height / 2, { zoom: 1.05, duration: reduce ? 0 : 600 });
   }, [flow, layout, props.focused, props.personId]);
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (!props.focused || !props.personId) return;
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-      if (document.querySelector("[role=dialog]")) return;
-      const targets = focusTargets(index, props.personId);
-      const go = (id: string | undefined) => {
-        if (!id) return;
-        event.preventDefault();
-        event.stopPropagation();
-        props.onFocus(id);
-      };
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        props.onExitFocus();
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        props.onOpen(props.personId);
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        const [left, right] = targets.parentSlots;
-        go(event.shiftKey ? right?.person.id ?? left?.person.id : left?.person.id ?? right?.person.id);
-      } else if (event.key === "ArrowDown") {
-        const children = targets.childGroups.flatMap((group) => group.children);
-        if (children.length === 1) go(children[0]?.id);
-      } else if (event.key === "ArrowLeft") {
-        go(targets.previousSibling?.id);
-      } else if (event.key === "ArrowRight") {
-        go(targets.nextSibling?.id);
-      }
-    }
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [index, props]);
 
   const chrome = useMemo<CanvasChrome>(
     () => ({
@@ -236,7 +197,7 @@ function CanvasSurface(props: {
           <LayoutSkeleton />
         )}
         {props.focused && props.personId ? (
-          <FocusChrome personId={props.personId} index={index} editing={props.editing} onNavigate={props.onFocus} onAdd={props.onAdd} />
+          <FocusChrome personId={props.personId} index={index} positions={layout?.positions} editing={props.editing} onNavigate={props.onFocus} onAdd={props.onAdd} />
         ) : null}
         <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-20 flex max-h-[calc(100%-1.5rem)] flex-row items-center gap-0.5 overflow-auto rounded-full border border-border bg-surface/95 p-1 shadow-sm [@media(max-width:240px)]:flex-col">
           <Button tooltip="Zoom in" variant="ghost" className="h-9 w-9 px-0" onClick={() => void flow.zoomIn({ duration: 180 })}>

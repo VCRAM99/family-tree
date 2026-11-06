@@ -127,7 +127,7 @@ export function FamilyColumn({
                     aria-label="Union start"
                     value={entry.union.startDate ?? ""}
                     onChange={(event) => onUnionDates(entry.union.id, { startDate: event.target.value || null })}
-                    className="ml-2 h-9 rounded-full border border-border bg-surface px-3 text-xs text-foreground"
+                    className="ml-2 h-9 rounded-full border border-border bg-surface px-3 text-xs text-text"
                   />
                 </label>
                 <label className="text-xs text-muted">
@@ -137,7 +137,7 @@ export function FamilyColumn({
                     aria-label="Union end"
                     value={entry.union.endDate ?? ""}
                     onChange={(event) => onUnionDates(entry.union.id, { endDate: event.target.value || null })}
-                    className="ml-2 h-9 rounded-full border border-border bg-surface px-3 text-xs text-foreground"
+                    className="ml-2 h-9 rounded-full border border-border bg-surface px-3 text-xs text-text"
                   />
                 </label>
                 <Button tooltip="Remove this relationship without deleting the person" variant="ghost" className="h-9 px-3" onClick={() => onUnlinkUnion(entry.union.id)}>

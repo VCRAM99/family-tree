@@ -1,5 +1,6 @@
 import {
   childrenGrouped,
+  orderingYear,
   parents,
   siblings,
   spouses,
@@ -51,7 +52,7 @@ export function focusTargets(index: GraphIndex, personId: string): FocusTargets 
   const partnerList = spouses(index, personId);
   const ordered = siblings(index, personId).map((entry) => entry.person);
   const self = index.personById.get(personId);
-  const withSelf = self ? [...ordered, self].sort(byBirth) : ordered;
+  const withSelf = self ? [...ordered, self].sort((a, b) => byBirth(index, a, b)) : ordered;
   const selfIndex = withSelf.findIndex((person) => person.id === personId);
   const childGroups = childrenGrouped(index, personId);
   return {
@@ -73,11 +74,43 @@ export function focusTargets(index: GraphIndex, personId: string): FocusTargets 
   };
 }
 
-function byBirth(a: GraphPerson, b: GraphPerson): number {
+function byBirth(index: GraphIndex, a: GraphPerson, b: GraphPerson): number {
   if (a.birthDate && b.birthDate && a.birthDate !== b.birthDate) return a.birthDate < b.birthDate ? -1 : 1;
-  if (a.birthDate && !b.birthDate) return -1;
-  if (!a.birthDate && b.birthDate) return 1;
+  if (!(a.birthDate && b.birthDate)) {
+    const left = orderingYear(index, a.id);
+    const right = orderingYear(index, b.id);
+    if (left !== null && right !== null && left !== right) return left - right;
+    if (left !== null && right === null) return -1;
+    if (left === null && right !== null) return 1;
+  }
   const name = a.firstName.localeCompare(b.firstName);
   if (name !== 0) return name;
   return a.id.localeCompare(b.id);
+}
+
+export type ArrowKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
+
+/** Arrow keys move between relatives. Enter is the only key that opens a card. */
+export function arrowTarget(targets: FocusTargets, key: string, shift: boolean): string | null {
+  if (key === "ArrowUp") {
+    if (shift) return targets.mother?.id ?? targets.parentSlots[1]?.person.id ?? null;
+    return targets.father?.id ?? targets.parentSlots[0]?.person.id ?? null;
+  }
+  if (key === "ArrowDown") {
+    const children = targets.childGroups.flatMap((group) => group.children);
+    return children.length === 1 ? children[0]?.id ?? null : null;
+  }
+  if (key === "ArrowLeft") return targets.previousSibling?.id ?? null;
+  if (key === "ArrowRight") return targets.nextSibling?.id ?? null;
+  return null;
+}
+
+export type ScreenBox = { x: number; y: number; width: number; height: number };
+export type ScreenDirection = "up" | "down" | "left" | "right";
+
+export function directionBetween(from: ScreenBox, to: ScreenBox): ScreenDirection {
+  const dx = to.x + to.width / 2 - (from.x + from.width / 2);
+  const dy = to.y + to.height / 2 - (from.y + from.height / 2);
+  if (Math.abs(dy) >= Math.abs(dx)) return dy <= 0 ? "up" : "down";
+  return dx < 0 ? "left" : "right";
 }

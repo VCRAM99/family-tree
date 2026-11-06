@@ -94,6 +94,7 @@ export const trees = pgTable(
     photosEnabled: boolean("photos_enabled").notNull().default(false),
     hideLivingDetails: boolean("hide_living_details").notNull().default(true),
     notifySuggestions: boolean("notify_suggestions").notNull().default(true),
+    autosave: boolean("autosave").notNull().default(true),
     visibleFields: text("visible_fields").array().$type<PersonField[]>().notNull().default(defaultVisibleFields),
     theme: text("theme").notNull().default("system"),
     customFieldDefs: jsonb("custom_field_defs").$type<CustomFieldDef[]>().notNull().default(sql`'[]'::jsonb`),

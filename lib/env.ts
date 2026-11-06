@@ -19,6 +19,20 @@ const serverEnvSchema = z
         message: "EMAIL_FROM is required when RESEND_API_KEY is set",
       });
     }
+    if (process.env.NODE_ENV === "production" && !value.RESEND_API_KEY) {
+      context.addIssue({
+        code: "custom",
+        path: ["RESEND_API_KEY"],
+        message: "RESEND_API_KEY is required in production",
+      });
+    }
+    if (process.env.NODE_ENV === "production" && !value.EMAIL_FROM) {
+      context.addIssue({
+        code: "custom",
+        path: ["EMAIL_FROM"],
+        message: "EMAIL_FROM is required in production",
+      });
+    }
   });
 
 /** Fail startup with a readable list. Do not pass the parsed secrets into client components. */

@@ -7,7 +7,7 @@ import { treeAdmins, trees } from "@/lib/db/schema";
 
 import { requireTreeOwner } from "./authz";
 import { getDb } from "./db";
-import { sendEmail } from "./email";
+import { deliverEmail } from "./email";
 import { brandedEmail } from "./email-templates";
 import { AuthzError, isUniqueViolation } from "./errors";
 
@@ -44,9 +44,7 @@ export async function inviteTreeAdmin(actorId: string | null, treeId: string, em
       : [`You have been invited to help tend ${tree.name}. Create an account with this email address, then accept the invitation.`],
     action: { label: existingUser ? "Open your dashboard" : "Create an account", href: link },
   });
-  void sendEmail({ to: invitedEmail, ...message }).catch((error: unknown) => {
-    console.error("[email] invite failed", error);
-  });
+  deliverEmail("invite", { to: invitedEmail, ...message });
 }
 
 export async function listTreeAdmins(actorId: string | null, treeId: string) {

@@ -29,6 +29,13 @@
       "when": 1793663482800,
       "tag": "0003_public_view",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793663483400,
+      "tag": "0004_account_theme_autosave",
+      "breakpoints": true
     }
   ]
 }

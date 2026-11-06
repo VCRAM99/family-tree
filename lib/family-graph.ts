@@ -120,10 +120,79 @@ export function createGraphIndex(graph: TreeGraph): GraphIndex {
   return { personById, parentsOf, childrenOf, unionsOf };
 }
 
-function byBirthThenName(a: GraphPerson, b: GraphPerson): number {
+const orderingCache = new WeakMap<GraphIndex, Map<string, number | null>>();
+
+/** Birth year for ordering only. Unknown dates are estimated and never stored. */
+export function orderingYear(index: GraphIndex, id: string): number | null {
+  let cache = orderingCache.get(index);
+  if (!cache) {
+    cache = new Map();
+    orderingCache.set(index, cache);
+  }
+  return estimateYear(index, id, cache, new Set());
+}
+
+function estimateYear(index: GraphIndex, id: string, cache: Map<string, number | null>, stack: Set<string>): number | null {
+  if (cache.has(id)) return cache.get(id) ?? null;
+  const person = index.personById.get(id);
+  if (!person) return null;
+  if (person.birthDate) {
+    const year = Number(person.birthDate.slice(0, 4));
+    const value = Number.isFinite(year) ? year : null;
+    cache.set(id, value);
+    return value;
+  }
+  if (stack.has(id)) return null;
+  stack.add(id);
+  const fromParents = yearsOf(index, (index.parentsOf.get(id) ?? []).map((link) => link.parentId), cache, stack);
+  if (fromParents.length > 0) {
+    const value = Math.round(average(fromParents) + 25);
+    cache.set(id, value);
+    stack.delete(id);
+    return value;
+  }
+  const fromChildren = yearsOf(index, (index.childrenOf.get(id) ?? []).map((link) => link.childId), cache, stack);
+  if (fromChildren.length > 0) {
+    const value = Math.round(average(fromChildren) - 25);
+    cache.set(id, value);
+    stack.delete(id);
+    return value;
+  }
+  const spouseIds = (index.unionsOf.get(id) ?? []).map((union) => (union.personAId === id ? union.personBId : union.personAId));
+  const fromSpouses = yearsOf(index, spouseIds, cache, stack);
+  if (fromSpouses.length > 0) {
+    const value = Math.round(average(fromSpouses));
+    cache.set(id, value);
+    stack.delete(id);
+    return value;
+  }
+  cache.set(id, null);
+  stack.delete(id);
+  return null;
+}
+
+function yearsOf(index: GraphIndex, ids: string[], cache: Map<string, number | null>, stack: Set<string>): number[] {
+  const years: number[] = [];
+  for (const id of ids) {
+    const year = estimateYear(index, id, cache, stack);
+    if (year !== null) years.push(year);
+  }
+  return years;
+}
+
+function average(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function byBirthThenName(index: GraphIndex, a: GraphPerson, b: GraphPerson): number {
   if (a.birthDate && b.birthDate && a.birthDate !== b.birthDate) return a.birthDate < b.birthDate ? -1 : 1;
-  if (a.birthDate && !b.birthDate) return -1;
-  if (!a.birthDate && b.birthDate) return 1;
+  if (!(a.birthDate && b.birthDate)) {
+    const left = orderingYear(index, a.id);
+    const right = orderingYear(index, b.id);
+    if (left !== null && right !== null && left !== right) return left - right;
+    if (left !== null && right === null) return -1;
+    if (left === null && right !== null) return 1;
+  }
   const name = a.firstName.localeCompare(b.firstName);
   if (name !== 0) return name;
   return a.id.localeCompare(b.id);
@@ -135,7 +204,7 @@ export function parents(index: GraphIndex, id: string): GraphPerson[] {
     const person = index.personById.get(link.parentId);
     return person && !person.isPlaceholder ? [person] : [];
   });
-  return people.sort((a, b) => sexRank[a.sex] - sexRank[b.sex] || byBirthThenName(a, b));
+  return people.sort((a, b) => sexRank[a.sex] - sexRank[b.sex] || byBirthThenName(index, a, b));
 }
 
 export function spouses(index: GraphIndex, id: string): SpouseRef[] {
@@ -150,15 +219,31 @@ export function spouses(index: GraphIndex, id: string): SpouseRef[] {
 }
 
 export function childrenGrouped(index: GraphIndex, id: string): ChildGroup[] {
-  const links = index.childrenOf.get(id) ?? [];
   const groups = new Map<string, GraphPerson[]>();
-  for (const link of links) {
-    const child = index.personById.get(link.childId);
-    if (!child) continue;
-    const key = effectiveUnionId(index, link) ?? "";
+  const seen = new Map<string, Set<string>>();
+  function addChild(key: string, child: GraphPerson) {
+    const ids = seen.get(key) ?? new Set<string>();
+    if (ids.has(child.id)) return;
+    ids.add(child.id);
+    seen.set(key, ids);
     const list = groups.get(key);
     if (list) list.push(child);
     else groups.set(key, [child]);
+  }
+  for (const link of index.childrenOf.get(id) ?? []) {
+    const child = index.personById.get(link.childId);
+    if (!child) continue;
+    addChild(effectiveUnionId(index, link) ?? "", child);
+  }
+  for (const union of index.unionsOf.get(id) ?? []) {
+    const otherId = union.personAId === id ? union.personBId : union.personAId;
+    for (const link of index.childrenOf.get(otherId) ?? []) {
+      const key = effectiveUnionId(index, link) ?? link.unionId ?? "";
+      if (key !== union.id) continue;
+      const child = index.personById.get(link.childId);
+      if (!child) continue;
+      addChild(union.id, child);
+    }
   }
 
   const ordered: ChildGroup[] = [];
@@ -175,13 +260,13 @@ export function childrenGrouped(index: GraphIndex, id: string): ChildGroup[] {
     ordered.push({
       union,
       otherParent: otherId ? (index.personById.get(otherId) ?? null) : null,
-      children: (groups.get(unionId) ?? []).sort(byBirthThenName),
+      children: (groups.get(unionId) ?? []).sort((a, b) => byBirthThenName(index, a, b)),
     });
   }
 
   const unknown = groups.get("");
   if (unknown?.length) {
-    ordered.push({ union: null, otherParent: null, children: unknown.sort(byBirthThenName) });
+    ordered.push({ union: null, otherParent: null, children: unknown.sort((a, b) => byBirthThenName(index, a, b)) });
   }
   return ordered;
 }
@@ -204,7 +289,7 @@ export function siblings(index: GraphIndex, id: string): SiblingRef[] {
     const real = [...parents].filter((parentId) => !index.personById.get(parentId)?.isPlaceholder);
     result.push({ person, half: real.length === 1 });
   }
-  return result.sort((a, b) => byBirthThenName(a.person, b.person));
+  return result.sort((a, b) => byBirthThenName(index, a.person, b.person));
 }
 
 export function relationshipCount(index: GraphIndex, id: string): number {

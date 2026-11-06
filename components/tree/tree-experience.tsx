@@ -33,6 +33,8 @@ import { relationshipsBetween } from "@/lib/kinship";
 import { assignGenerations } from "@/lib/layout";
 import { emptyFilters, filtersActive, peopleMatching, type TreeFilters } from "@/lib/tree-search";
 import { flushAutosaves, type AutosaveStatus } from "@/lib/autosave";
+import { arrowTarget, focusTargets } from "@/lib/focus-nav";
+import { SaveFab } from "@/components/save-fab";
 import { carriedDraftPatch, childUnionChoice, mergeSavedPerson, type LinkInput, type PersonPatch, type RelationInput } from "@/lib/person-edits";
 
 type SavedWrite = {
@@ -61,6 +63,7 @@ export type TreeScreenData = {
   publicMode?: boolean;
   allowSuggestions?: boolean;
   signedIn?: boolean;
+  autosave?: boolean;
 };
 
 export function TreeExperience(props: TreeScreenData) {
@@ -150,16 +153,55 @@ function TreeScreen(props: TreeScreenData) {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      if (dialog) {
-        setDialog(null);
+      const target = event.target;
+      const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+      if (event.key === "Escape") {
+        if (dialog) {
+          setDialog(null);
+          return;
+        }
+        if (view === "tree" && focused) {
+          setFocused(false);
+          return;
+        }
+        if (editing) setEditing(false);
         return;
       }
-      if (editing) setEditing(false);
+      if (typing || document.querySelector("[role=dialog]") || !personId) return;
+      const arrows = view === "card" || focused;
+      if (event.key === "Enter") {
+        if (view === "tree" && focused) {
+          event.preventDefault();
+          event.stopPropagation();
+          const params = new URLSearchParams(window.location.search);
+          params.set("view", "card");
+          params.set("person", personId);
+          router.push(`${basePath}?${params.toString()}`, { scroll: false });
+        }
+        return;
+      }
+      if (!arrows || !event.key.startsWith("Arrow")) return;
+      const next = arrowTarget(focusTargets(index, personId), event.key, event.shiftKey);
+      if (!next) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (view === "tree") setFocused(true);
+      openPerson(next);
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [dialog, editing]);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [basePath, dialog, editing, focused, index, openPerson, personId, router, view]);
+
+  useEffect(() => {
+    if (props.autosave !== false) return;
+    function onLeave(event: BeforeUnloadEvent) {
+      if (summary === "unsaved" || summary === "invalid" || summary === "retry") {
+        event.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [props.autosave, summary]);
 
   const reportStatus = useCallback((status: AutosaveStatus) => {
     statuses.current.set("field", status);
@@ -344,6 +386,16 @@ function TreeScreen(props: TreeScreenData) {
 
   return (
     <main className={view === "tree" ? "flex h-full min-h-0 flex-col px-3 sm:px-4" : "mx-auto w-full max-w-6xl px-4 pb-24 sm:px-8"}>
+      {editing && props.canEdit ? (
+        <SaveFab
+          icon={summary === "saving" ? "spinner" : summary === "unsaved" || summary === "invalid" || summary === "retry" ? "floppy" : "check"}
+          tooltip={props.autosave === false ? "Autosave is off — click to save" : "Autosave is on"}
+          disabled={summary === "saving"}
+          onClick={() => {
+            void flushAutosaves();
+          }}
+        />
+      ) : null}
       <header className="flex shrink-0 flex-col gap-4 py-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs tracking-[0.22em] text-muted uppercase">Tree</p>
@@ -363,9 +415,6 @@ function TreeScreen(props: TreeScreenData) {
               openPerson(id);
             }}
           />
-          <p className="min-w-16 text-sm text-muted" aria-live="polite">
-            {summary === "saving" ? "Saving…" : summary === "saved" ? "Saved" : summary === "retry" ? "Retry" : ""}
-          </p>
           <Button
             tooltip={view === "tree" ? "Show the card" : "Show the tree diagram"}
             variant={view === "tree" ? "primary" : "secondary"}
@@ -442,6 +491,7 @@ function TreeScreen(props: TreeScreenData) {
               focusLayout
               onPersist={(patch) => persist(person, patch)}
               onStatus={reportStatus}
+              autosave={props.autosave !== false}
               onToggleMe={() => void toggleMe()}
               onDelete={() => {
                 setDialogError(null);

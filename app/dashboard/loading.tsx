@@ -4,7 +4,7 @@ export default function DashboardLoading() {
       <p className="sr-only">Loading your trees</p>
       <div className="h-4 w-28 animate-pulse rounded-full bg-border" />
       <div className="mt-4 h-14 w-48 animate-pulse rounded-2xl bg-border" />
-      <div className="mt-12 h-28 animate-pulse rounded-[2rem] border border-border bg-surface" />
+      <div className="mt-12 h-28 animate-pulse rounded-4xl border border-border bg-surface" />
     </main>
   );
 }

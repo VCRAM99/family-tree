@@ -90,7 +90,7 @@ export function DashboardView({
       {creating ? <CreateTreeForm onClose={() => setCreating(false)} /> : null}
 
       {trees.length === 0 ? (
-        <section className="mt-16 rounded-[2rem] border border-dashed border-border px-8 py-20 text-center">
+        <section className="mt-16 rounded-4xl border border-dashed border-border px-8 py-20 text-center">
           <h2 className="font-display text-4xl tracking-tight">No trees yet</h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted">
             A tree is a private room for a family. Create one, then invite the people who should help tend it.
@@ -116,7 +116,7 @@ function InviteList({ invites }: { invites: { id: string; treeName: string }[] }
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   return (
-    <section className="mt-10 rounded-[2rem] border border-border bg-surface p-6">
+    <section className="mt-10 rounded-4xl border border-border bg-surface p-6">
       <h2 className="font-display text-3xl">Invitations</h2>
       <ul className="mt-4 flex flex-col gap-3">
         {invites.map((invite) => (
@@ -163,7 +163,7 @@ function CreateTreeForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form
-      className="mt-10 rounded-[2rem] border border-border bg-surface p-6 sm:p-8"
+      className="mt-10 rounded-4xl border border-border bg-surface p-6 sm:p-8"
       action={(formData) => {
         setError(null);
         startTransition(async () => {
@@ -194,6 +194,38 @@ function CreateTreeForm({ onClose }: { onClose: () => void }) {
   );
 }
 
+function ShareControls({ tree }: { tree: TreeListItem }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  if (tree.visibility === "private") {
+    return (
+      <Tooltip content="Private — change in settings" side="bottom">
+        <Link href={`/tree/${tree.id}/settings`} className="inline-flex h-11 items-center rounded-full border border-border px-4 text-sm">
+          Private — change in settings
+        </Link>
+      </Tooltip>
+    );
+  }
+  const slug = tree.visibility === "public" && tree.publicTag ? tree.publicTag : tree.shareCode;
+  const label = tree.visibility === "public" ? "Copy tag" : "Copy code";
+  const value = tree.visibility === "public" && tree.publicTag ? tree.publicTag : tree.shareCode;
+  function copy(text: string, kind: string) {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 1600);
+    });
+  }
+  return (
+    <>
+      <Button tooltip={tree.visibility === "public" ? "Copy the public tag" : "Copy the share code"} variant="secondary" className="h-11" onClick={() => copy(value, "code")}>
+        {copied === "code" ? "Copied" : label}
+      </Button>
+      <Button tooltip="Copy the viewer link" variant="secondary" className="h-11" onClick={() => copy(`${window.location.origin}/${slug}`, "link")}>
+        {copied === "link" ? "Copied" : "Copy link"}
+      </Button>
+    </>
+  );
+}
+
 function TreeCard({ tree }: { tree: TreeListItem }) {
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -202,7 +234,7 @@ function TreeCard({ tree }: { tree: TreeListItem }) {
   const [pending, startTransition] = useTransition();
 
   return (
-    <article className="rounded-[2rem] border border-border bg-surface px-6 py-6 sm:px-8">
+    <article className="rounded-4xl border border-border bg-surface px-6 py-6 sm:px-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs tracking-[0.18em] text-muted uppercase">
@@ -217,7 +249,8 @@ function TreeCard({ tree }: { tree: TreeListItem }) {
               Open
             </Link>
           </Tooltip>
-          <Tooltip content="Visibility, sharing, and theme" side="bottom">
+          <ShareControls tree={tree} />
+          <Tooltip content="Visibility and sharing" side="bottom">
             <Link
               href={`/tree/${tree.id}/settings`}
               className="inline-flex h-11 items-center rounded-full border border-border px-5 text-sm"

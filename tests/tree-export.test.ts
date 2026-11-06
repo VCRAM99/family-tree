@@ -27,6 +27,7 @@ describe("tree export", () => {
         notifySuggestions: false,
         visibleFields: ["bio"],
         theme: "sepia-archive",
+        autosave: true,
         customFieldDefs: [{ key: "clan", label: "Clan", type: "text" }],
       });
       const ada = await createPersonWithRelation(owner, original.id, { firstName: "Ada", sex: "female" }, { kind: "root" });

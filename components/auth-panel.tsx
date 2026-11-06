@@ -37,7 +37,11 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
           setError(result.error.message ?? "Could not create the account.");
           return;
         }
-        setNotice("Check your email for a verification link. In local development it is printed in the server console.");
+        setNotice(
+          process.env.NODE_ENV === "development"
+            ? "Check your email for a verification link. In local development it is printed in the server console."
+            : "Check your email for a verification link.",
+        );
         return;
       }
 
@@ -48,7 +52,11 @@ export function AuthPanel({ nextPath, initialMode = "sign-in" }: { nextPath?: st
       });
       if (result.error) {
         if (result.error.status === 403) {
-          setError("Verify your email before signing in. A fresh link is on its way — check the server console if you are developing locally.");
+          setError(
+            process.env.NODE_ENV === "development"
+              ? "Verify your email before signing in. A fresh link is on its way — check the server console if you are developing locally."
+              : "Verify your email before signing in. A fresh link is on its way.",
+          );
           return;
         }
         setError(result.error.message ?? "Could not sign in.");

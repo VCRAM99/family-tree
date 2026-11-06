@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { createAutosave, type AutosaveStatus } from "@/lib/autosave";
 
-export function useAutosave<T>(save: (value: T) => Promise<void>, delay = 600) {
+export function useAutosave<T>(save: (value: T) => Promise<void>, delay = 600, manual = false) {
   const [status, setStatus] = useState<AutosaveStatus>("idle");
-  const [saver] = useState(() => createAutosave<T>({ delayMs: delay, save, onStatus: setStatus }));
+  const [saver] = useState(() => createAutosave<T>({ delayMs: delay, save, onStatus: setStatus, manual }));
   saver.bindSave(save);
   saver.bindStatus(setStatus);
+  saver.setManual(manual);
 
   useEffect(() => () => saver.dispose(), [saver]);
 

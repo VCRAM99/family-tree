@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { TreeExperience } from "@/components/tree/tree-experience";
-import { PublishTreeTheme } from "@/components/theme-provider";
 import { Tooltip } from "@/components/tooltip";
 import type { PersonField } from "@/lib/domain";
 import { PERSON_FIELDS } from "@/lib/domain";
@@ -30,7 +29,6 @@ export function PublicTreeScreen({
 
   return (
     <div className="flex h-dvh flex-col">
-      <PublishTreeTheme theme={view.summary.theme} />
       <header className="flex items-center justify-between gap-4 px-6 py-5 sm:px-10">
         <div>
           <p className="text-xs tracking-[0.22em] text-muted uppercase">{view.summary.visibility === "public" ? "Public" : "Unlisted"}</p>

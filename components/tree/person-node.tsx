@@ -119,11 +119,11 @@ function PersonNodeView({ id }: NodeProps) {
       </div>
       {showAdd ? (
         <>
-          {targets.missing.father ? <Plus tooltip="Add a father" className="-top-[11px] left-8 text-father" onAdd={() => chrome.onAdd("father", id)} /> : null}
-          {targets.missing.mother ? <Plus tooltip="Add a mother" className="-top-[11px] right-3 text-mother" onAdd={() => chrome.onAdd("mother", id)} /> : null}
-          {targets.missing.sibling ? <Plus tooltip="Add a sibling" className="top-1/2 -left-[11px]" onAdd={() => chrome.onAdd("sibling", id)} /> : null}
-          {targets.missing.spouse ? <Plus tooltip="Add a spouse" className="top-1/2 -right-[11px]" onAdd={() => chrome.onAdd("spouse", id)} /> : null}
-          {targets.missing.child ? <Plus tooltip="Add a child" className="left-1/2 -bottom-[11px]" onAdd={() => chrome.onAdd("child", id)} /> : null}
+          {targets.missing.father ? <Plus tooltip="Add a father" className="-top-2.75 left-8 text-father" onAdd={() => chrome.onAdd("father", id)} /> : null}
+          {targets.missing.mother ? <Plus tooltip="Add a mother" className="-top-2.75 right-3 text-mother" onAdd={() => chrome.onAdd("mother", id)} /> : null}
+          {targets.missing.sibling ? <Plus tooltip="Add a sibling" className="top-1/2 -left-2.75" onAdd={() => chrome.onAdd("sibling", id)} /> : null}
+          {targets.missing.spouse ? <Plus tooltip="Add a spouse" className="top-1/2 -right-2.75" onAdd={() => chrome.onAdd("spouse", id)} /> : null}
+          {targets.missing.child ? <Plus tooltip="Add a child" className="-bottom-2.75 left-1/2" onAdd={() => chrome.onAdd("child", id)} /> : null}
         </>
       ) : null}
     </motion.div>
@@ -136,7 +136,7 @@ function Plus({ tooltip, className, onAdd }: { tooltip: string; className: strin
       <Button
         tooltip={tooltip}
         variant="secondary"
-        className="h-[22px] w-[22px] px-0 text-xs leading-none"
+        className="h-5.5 w-5.5 px-0 text-xs leading-none"
         onClick={(event) => {
           event.stopPropagation();
           onAdd();

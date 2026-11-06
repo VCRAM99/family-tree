@@ -30,6 +30,7 @@ export default async function TreeSettingsPage({ params }: { params: Promise<{ i
     photosEnabled: tree.photosEnabled,
     hideLivingDetails: tree.hideLivingDetails,
     notifySuggestions: tree.notifySuggestions,
+    autosave: tree.autosave,
     visibleFields,
     theme: isThemeId(tree.theme) ? tree.theme : "system",
     customFieldDefs: parseCustomFieldDefs(tree.customFieldDefs),

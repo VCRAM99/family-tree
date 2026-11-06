@@ -37,6 +37,7 @@ export function PersonCard({
   focusLayout,
   onPersist,
   onStatus,
+  autosave = true,
   onToggleMe,
   onDelete,
   onPhoto,
@@ -51,6 +52,7 @@ export function PersonCard({
   focusLayout: boolean;
   onPersist: (patch: PersonPatch) => Promise<void>;
   onStatus: (status: AutosaveStatus) => void;
+  autosave?: boolean;
   onToggleMe: () => void;
   onDelete: () => void;
   onPhoto: (hasPhoto: boolean) => void;
@@ -68,7 +70,7 @@ export function PersonCard({
     <motion.article
       layoutId={focusLayout ? `person-${person.id}` : undefined}
       transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 34 }}
-      className="rounded-[2rem] border border-border bg-surface p-6 sm:p-10"
+      className="rounded-4xl border border-border bg-surface p-6 sm:p-10"
     >
       <div className="flex flex-col gap-8 sm:flex-row">
         <PhotoBlock person={person} editing={editing} enabled={photosEnabled} onPhoto={onPhoto} />
@@ -82,12 +84,12 @@ export function PersonCard({
                 autoFocus={person.pending}
                 validate={(value) => (value.trim() ? null : "A first name is required.")}
                 onSave={(value) => onPersist({ firstName: value })}
-                onStatus={onStatus}
+                onStatus={onStatus} autosave={autosave}
               />
-              <TextField label="Preferred name" value={person.preferredName ?? ""} editing onSave={(value) => onPersist({ preferredName: value })} onStatus={onStatus} />
-              <TextField label="Middle name" value={person.middleName ?? ""} editing onSave={(value) => onPersist({ middleName: value })} onStatus={onStatus} />
-              <TextField label="Last name" value={person.lastName ?? ""} editing onSave={(value) => onPersist({ lastName: value })} onStatus={onStatus} />
-              <TextField label="Birth surname" value={person.birthSurname ?? ""} editing onSave={(value) => onPersist({ birthSurname: value })} onStatus={onStatus} />
+              <TextField label="Preferred name" value={person.preferredName ?? ""} editing onSave={(value) => onPersist({ preferredName: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Middle name" value={person.middleName ?? ""} editing onSave={(value) => onPersist({ middleName: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Last name" value={person.lastName ?? ""} editing onSave={(value) => onPersist({ lastName: value })} onStatus={onStatus} autosave={autosave} />
+              <TextField label="Birth surname" value={person.birthSurname ?? ""} editing onSave={(value) => onPersist({ birthSurname: value })} onStatus={onStatus} autosave={autosave} />
             </div>
           ) : (
             <>
@@ -130,6 +132,7 @@ export function PersonCard({
           options={sexes}
           onSave={(value) => onPersist({ sex: value as Sex })}
           onStatus={onStatus}
+          autosave={autosave}
         />
         <DateField
           label="Birth"
@@ -137,12 +140,13 @@ export function PersonCard({
           precision={person.birthDatePrecision}
           editing={editing}
           onStatus={onStatus}
+          autosave={autosave}
           onSave={(date, precision) => onPersist({ birthDate: date, birthDatePrecision: precision })}
         />
         {editing ? (
           <div>
             <span className="text-xs tracking-wide text-muted uppercase">Status</span>
-            <div className="mt-2 flex h-12 w-full overflow-hidden rounded-2xl border border-border" role="group" aria-label="Status">
+            <div className="mt-2 flex h-12 w-full rounded-2xl border border-border" role="group" aria-label="Status">
               <Button
                 tooltip="Mark this person as living"
                 variant={!person.isDeceased ? "primary" : "ghost"}
@@ -161,37 +165,37 @@ export function PersonCard({
               </Button>
             </div>
             <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${person.isDeceased ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-              <div className="min-h-0 overflow-hidden" inert={person.isDeceased ? undefined : true}>
-                <div className="pt-6">
-                  <DateField
-                    label="Death"
-                    date={person.deathDate}
-                    precision={person.deathDatePrecision}
-                    editing={editing}
-                    onStatus={onStatus}
-                    onSave={(date, precision) => onPersist({ deathDate: date, deathDatePrecision: precision, isDeceased: Boolean(date) || person.isDeceased })}
-                  />
-                </div>
+              <div className={person.isDeceased ? "min-h-0 overflow-visible" : "min-h-0 overflow-hidden"} inert={person.isDeceased ? undefined : true}>
+                <DateField
+                  label="Death"
+                  date={person.deathDate}
+                  precision={person.deathDatePrecision}
+                  editing={editing}
+                  notBefore={person.birthDate}
+                  onStatus={onStatus}
+                  autosave={autosave}
+                  onSave={(date, precision) => onPersist({ deathDate: date, deathDatePrecision: precision, isDeceased: Boolean(date) || person.isDeceased })}
+                />
               </div>
             </div>
           </div>
         ) : person.isDeceased && !death ? (
           <p className="text-muted">Deceased</p>
         ) : null}
-        <TextField label="Birth place" value={person.birthPlace ?? ""} editing={editing} onSave={(value) => onPersist({ birthPlace: value })} onStatus={onStatus} />
-        <TextField label="Native place" value={person.nativePlace ?? ""} editing={editing} onSave={(value) => onPersist({ nativePlace: value })} onStatus={onStatus} />
-        <TextField label="Current place" value={person.currentLocation ?? ""} editing={editing} onSave={(value) => onPersist({ currentLocation: value })} onStatus={onStatus} />
-        <TextField label="Occupation" value={person.occupation ?? ""} editing={editing} onSave={(value) => onPersist({ occupation: value })} onStatus={onStatus} />
+        <TextField label="Birth place" value={person.birthPlace ?? ""} editing={editing} onSave={(value) => onPersist({ birthPlace: value })} onStatus={onStatus} autosave={autosave} />
+        <TextField label="Native place" value={person.nativePlace ?? ""} editing={editing} onSave={(value) => onPersist({ nativePlace: value })} onStatus={onStatus} autosave={autosave} />
+        <TextField label="Current place" value={person.currentLocation ?? ""} editing={editing} onSave={(value) => onPersist({ currentLocation: value })} onStatus={onStatus} autosave={autosave} />
+        <TextField label="Occupation" value={person.occupation ?? ""} editing={editing} onSave={(value) => onPersist({ occupation: value })} onStatus={onStatus} autosave={autosave} />
       </div>
 
       <div className="mt-6">
-        <TextField label="Biography" value={person.bio ?? ""} editing={editing} multiline onSave={(value) => onPersist({ bio: value })} onStatus={onStatus} />
+        <TextField label="Biography" value={person.bio ?? ""} editing={editing} multiline onSave={(value) => onPersist({ bio: value })} onStatus={onStatus} autosave={autosave} />
       </div>
 
       {customFieldDefs.length > 0 ? (
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
           {customFieldDefs.map((field) => (
-            <CustomValue key={field.key} field={field} person={person} editing={editing} onPersist={onPersist} onStatus={onStatus} />
+            <CustomValue key={field.key} field={field} person={person} editing={editing} onPersist={onPersist} onStatus={onStatus} autosave={autosave} />
           ))}
         </div>
       ) : null}
@@ -206,7 +210,7 @@ export function PersonCard({
                 editing
                 validate={(value) => contactError({ phoneWhatsapp: value.trim() || null, email: null, instagram: null, facebook: null })}
                 onSave={(value) => onPersist({ phoneWhatsapp: value })}
-                onStatus={onStatus}
+                onStatus={onStatus} autosave={autosave}
               />
               <TextField
                 label="Email"
@@ -214,7 +218,7 @@ export function PersonCard({
                 editing
                 validate={(value) => contactError({ phoneWhatsapp: null, email: value.trim() || null, instagram: null, facebook: null })}
                 onSave={(value) => onPersist({ email: value })}
-                onStatus={onStatus}
+                onStatus={onStatus} autosave={autosave}
               />
               <TextField
                 label="Instagram"
@@ -222,7 +226,7 @@ export function PersonCard({
                 editing
                 validate={(value) => contactError({ phoneWhatsapp: null, email: null, instagram: value.trim() || null, facebook: null })}
                 onSave={(value) => onPersist({ instagram: value })}
-                onStatus={onStatus}
+                onStatus={onStatus} autosave={autosave}
               />
               <TextField
                 label="Facebook"
@@ -230,7 +234,7 @@ export function PersonCard({
                 editing
                 validate={(value) => contactError({ phoneWhatsapp: null, email: null, instagram: null, facebook: value.trim() || null })}
                 onSave={(value) => onPersist({ facebook: value })}
-                onStatus={onStatus}
+                onStatus={onStatus} autosave={autosave}
               />
             </>
           ) : socialsEnabled ? (
@@ -334,12 +338,14 @@ function CustomValue({
   editing,
   onPersist,
   onStatus,
+  autosave = true,
 }: {
   field: CustomFieldDef;
   person: GraphPerson;
   editing: boolean;
   onPersist: (patch: PersonPatch) => Promise<void>;
   onStatus: (status: AutosaveStatus) => void;
+  autosave?: boolean;
 }) {
   const raw = person.customFields[field.key];
   const value = raw == null ? "" : String(raw);
@@ -352,6 +358,7 @@ function CustomValue({
         options={[{ value: "", label: "—" }, ...(field.options ?? []).map((option) => ({ value: option, label: option }))]}
         onSave={(next) => onPersist({ customFields: { [field.key]: next || null } })}
         onStatus={onStatus}
+        autosave={autosave}
       />
     );
   }
@@ -363,6 +370,7 @@ function CustomValue({
         precision={value ? "exact" : null}
         editing={editing}
         onStatus={onStatus}
+        autosave={autosave}
         onSave={(date) => onPersist({ customFields: { [field.key]: date } })}
       />
     );
@@ -375,6 +383,7 @@ function CustomValue({
       multiline={field.type === "long_text"}
       onSave={(next) => onPersist({ customFields: { [field.key]: field.type === "number" ? next : next || null } })}
       onStatus={onStatus}
+      autosave={autosave}
     />
   );
 }
@@ -384,15 +393,19 @@ function DateField({
   date,
   precision,
   editing,
+  notBefore,
   onSave,
   onStatus,
+  autosave = true,
 }: {
   label: string;
   date: string | null;
   precision: DatePrecision | null;
   editing: boolean;
+  notBefore?: string | null;
   onSave: (date: string | null, precision: DatePrecision | null) => Promise<void>;
   onStatus: (status: AutosaveStatus) => void;
+  autosave?: boolean;
 }) {
   const [localPrecision, setLocalPrecision] = useState<DatePrecision>(precision ?? "exact");
   const [localDate, setLocalDate] = useState(date ?? "");
@@ -407,9 +420,9 @@ function DateField({
       setDirty(false);
     }
   }
-  const { status, push, retry } = useAutosave(async (next: { date: string | null; precision: DatePrecision | null }) => {
+  const { status, push } = useAutosave(async (next: { date: string | null; precision: DatePrecision | null }) => {
     await onSave(next.date, next.precision);
-  });
+  }, 600, !autosave);
   useEffect(() => {
     if (status !== "idle") onStatus(status);
   }, [onStatus, status]);
@@ -417,6 +430,20 @@ function DateField({
   if (!editing) return null;
 
   const shown = inputValue(localDate, localPrecision);
+  const parsed = toIso(shown, localPrecision);
+  const invalid = Boolean(parsed && notBefore && parsed < notBefore);
+  function publish(value: string, nextPrecision: DatePrecision) {
+    const iso = toIso(value, nextPrecision);
+    if (!value) {
+      push({ date: null, precision: null });
+      return;
+    }
+    if (!iso || (notBefore && iso < notBefore)) {
+      onStatus("invalid");
+      return;
+    }
+    push({ date: iso, precision: nextPrecision });
+  }
   return (
     <div>
       <span className="text-xs tracking-wide text-muted uppercase">{label}</span>
@@ -430,8 +457,7 @@ function DateField({
               const nextPrecision = event.target.value as DatePrecision;
               setDirty(true);
               setLocalPrecision(nextPrecision);
-              const iso = toIso(shown, nextPrecision);
-              if (iso) push({ date: iso, precision: nextPrecision });
+              publish(shown, nextPrecision);
             }}
           >
             <option value="exact">Exact</option>
@@ -453,30 +479,24 @@ function DateField({
             onChange={(event) => {
               setDirty(true);
               setLocalDate(event.target.value);
-              const iso = toIso(event.target.value, localPrecision);
-              if (!event.target.value) push({ date: null, precision: null });
-              else if (iso) push({ date: iso, precision: localPrecision });
+              publish(event.target.value, localPrecision);
             }}
           />
           <Button
             tooltip={`Clear ${label.toLowerCase()}`}
             variant="ghost"
-            className="absolute top-1/2 right-1 h-[22px]! w-[22px]! -translate-y-1/2 px-0!"
+            className="absolute top-1/2 right-1 h-5.5! w-5.5! -translate-y-1/2 px-0!"
             onClick={() => {
               setDirty(true);
               setLocalDate("");
-              push({ date: null, precision: null });
+              publish("", localPrecision);
             }}
           >
             ×
           </Button>
         </span>
       </div>
-      {status === "retry" ? (
-        <Button tooltip="Try saving again" variant="ghost" className="mt-1 h-9 px-3 text-danger" onClick={() => retry()}>
-          Retry
-        </Button>
-      ) : null}
+      {invalid ? <span className="mt-1 block text-sm text-danger">Invalid date</span> : null}
     </div>
   );
 }

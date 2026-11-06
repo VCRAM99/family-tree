@@ -60,6 +60,20 @@ describe("autosave hook", () => {
     expect(saver.status()).toBe("saved");
   });
 
+  it("queues a manual edit until flush", async () => {
+    const clock = fakeTimers();
+    const save = vi.fn(async () => {});
+    const saver = createAutosave<string>({ delayMs: 600, manual: true, save, timers: clock.timers });
+    saver.push("draft");
+    clock.flush();
+    await Promise.resolve();
+    expect(save).not.toHaveBeenCalled();
+    expect(saver.status()).toBe("unsaved");
+    await saver.flush();
+    expect(save).toHaveBeenCalledWith("draft");
+    expect(saver.status()).toBe("saved");
+  });
+
   it("stays on retry until the failed save succeeds", async () => {
     const clock = fakeTimers();
     let fail = true;

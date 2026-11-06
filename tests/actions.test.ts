@@ -125,6 +125,7 @@ function settings(ids: { treeName: string; treeId: string }): SettingsInput {
     notifySuggestions: true,
     visibleFields: [],
     theme: "system",
+    autosave: true,
     customFieldDefs: [],
   };
 }

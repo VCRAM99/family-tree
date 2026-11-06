@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-function isProtected(pathname: string): boolean {
-  return pathname === "/dashboard" || pathname.startsWith("/dashboard/") || pathname === "/tree" || pathname.startsWith("/tree/");
-}
+import { isProtectedPath } from "@/lib/paths";
 
 export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
@@ -12,7 +10,7 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("x-method", request.method);
   requestHeaders.set("x-request-id", crypto.randomUUID());
 
-  if (isProtected(request.nextUrl.pathname) && !getSessionCookie(request)) {
+  if (isProtectedPath(request.nextUrl.pathname) && !getSessionCookie(request)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";

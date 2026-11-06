@@ -37,6 +37,7 @@ export default async function TreePage({ params, searchParams }: PageProps<"/tre
         viewerPersonId={identity?.personId ?? null}
         initialPersonId={initialPersonId}
         graph={graph}
+        autosave={tree.autosave}
       />
     </Suspense>
   );

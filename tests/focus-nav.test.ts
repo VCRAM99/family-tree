@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createGraphIndex, type GraphPerson, type TreeGraph } from "@/lib/family-graph";
-import { focusTargets } from "@/lib/focus-nav";
+import { arrowTarget, directionBetween, focusTargets } from "@/lib/focus-nav";
 
 function person(id: string, sex: GraphPerson["sex"], birthDate: string | null): GraphPerson {
   return {
@@ -111,5 +111,33 @@ describe("focus navigation", () => {
     expect(targets.parentSlots[1]).toBeNull();
     expect(targets.missing.father).toBe(false);
     expect(targets.missing.mother).toBe(true);
+  });
+
+  it("shows a mother's children when only the father link names the union", () => {
+    const graph: TreeGraph = {
+      persons: [person("dad", "male", "1970-01-01"), person("mom", "female", "1972-01-01"), person("child", "female", "2000-01-01")],
+      parentLinks: [{ id: "a", parentId: "dad", childId: "child", kind: "biological", unionId: "u" }],
+      unions: [{ id: "u", personAId: "dad", personBId: "mom", status: "married", startDate: null, endDate: null, sortOrder: 0 }],
+    };
+    const index = createGraphIndex(graph);
+    expect(focusTargets(index, "mom").childGroups.flatMap((group) => group.children.map((child) => child.id))).toEqual(["child"]);
+    expect(focusTargets(index, "dad").childGroups.flatMap((group) => group.children.map((child) => child.id))).toEqual(["child"]);
+    expect(focusTargets(index, "mom").missing.child).toBe(false);
+  });
+
+  it("sends Shift+Up to the mother and does not treat arrows as Enter", () => {
+    const targets = focusTargets(createGraphIndex(family), "me");
+    expect(arrowTarget(targets, "ArrowUp", true)).toBe("mom");
+    expect(arrowTarget(targets, "ArrowUp", false)).toBe("dad");
+    expect(arrowTarget(targets, "Enter", false)).toBeNull();
+    expect(arrowTarget(targets, "ArrowDown", false)).toBeNull();
+  });
+
+  it("places a spouse on the side of their node and children below", () => {
+    const focus = { x: 100, y: 100, width: 40, height: 20 };
+    expect(directionBetween(focus, { x: 200, y: 100, width: 40, height: 20 })).toBe("right");
+    expect(directionBetween(focus, { x: 20, y: 100, width: 40, height: 20 })).toBe("left");
+    expect(directionBetween(focus, { x: 100, y: 220, width: 40, height: 20 })).toBe("down");
+    expect(directionBetween(focus, { x: 100, y: 0, width: 40, height: 20 })).toBe("up");
   });
 });

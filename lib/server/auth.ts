@@ -7,7 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 import { account, rateLimit, session, user, verification } from "@/lib/db/schema";
 
 import { getDb } from "./db";
-import { sendEmail } from "./email";
+import { deliverEmail } from "./email";
 import { brandedEmail } from "./email-templates";
 
 function appUrl(): string {
@@ -40,9 +40,7 @@ export const auth = betterAuth({
         paragraphs: ["Use the link below to choose a new password. If you did not ask for this, you can ignore this email."],
         action: { label: "Choose a new password", href: url },
       });
-      void sendEmail({ to: accountUser.email, ...message }).catch((error: unknown) => {
-        console.error("[email] reset password failed", error);
-      });
+      deliverEmail("reset", { to: accountUser.email, ...message });
     },
   },
   emailVerification: {
@@ -57,9 +55,7 @@ export const auth = betterAuth({
         paragraphs: ["Confirm this address to finish creating your account."],
         action: { label: "Verify email", href: url },
       });
-      void sendEmail({ to: accountUser.email, ...message }).catch((error: unknown) => {
-        console.error("[email] verification failed", error);
-      });
+      deliverEmail("verification", { to: accountUser.email, ...message });
     },
   },
   rateLimit: {

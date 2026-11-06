@@ -21,7 +21,7 @@ const branches = [
 
 export function SplashTree() {
   return (
-    <div className="splash-stage relative h-56 overflow-hidden rounded-[2rem] border border-border bg-surface/80 lg:h-[32rem]">
+    <div className="splash-stage relative h-56 overflow-hidden rounded-4xl border border-border bg-surface/80 lg:h-128">
       <style>{splashCss}</style>
       <svg viewBox="0 0 460 460" className="splash-camera h-full w-full" role="img" aria-label="An animated sample of the Voss and Hale families">
         <g className="splash-draw" fill="none" stroke="currentColor" strokeWidth="1.4">

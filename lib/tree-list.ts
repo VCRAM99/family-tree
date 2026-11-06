@@ -5,5 +5,6 @@ export type TreeListItem = {
   visibility: "private" | "unlisted" | "public";
   role: "owner" | "admin";
   shareCode: string;
+  publicTag: string | null;
   updatedAt: string;
 };

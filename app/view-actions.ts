@@ -7,6 +7,7 @@ import { searchPublicTrees } from "@/lib/server/public-tree";
 import { requireUser } from "@/lib/server/session";
 import { createSuggestion } from "@/lib/server/suggestions";
 import { classifyTreeLookup } from "@/lib/public-tag";
+import { legacyCodePath, legacyTagPath } from "@/lib/viewer-url";
 import { getPublicTreeByTag, getTreeByCode } from "@/lib/server/public-tree";
 import { headers } from "next/headers";
 
@@ -21,12 +22,12 @@ export async function resolveTreeLookup(value: string): Promise<{ href?: string;
   if (kind === "share_code") {
     const view = await getTreeByCode(value, ip);
     if (!view) return { error: "We couldn't find that tree." };
-    return { href: `/v/${value.trim().toUpperCase()}` };
+    return { href: legacyCodePath(value) };
   }
   if (kind === "public_tag") {
     const view = await getPublicTreeByTag(value, ip);
-    if (!view) return { error: "We couldn't find that tree." };
-    return { href: `/t/${view.summary.publicTag}` };
+    if (!view?.summary.publicTag) return { error: "We couldn't find that tree." };
+    return { href: legacyTagPath(view.summary.publicTag) };
   }
   return { error: "Enter an 8-character share code or a public tag." };
 }

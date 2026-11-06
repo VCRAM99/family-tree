@@ -65,7 +65,7 @@ function center(layout: Awaited<ReturnType<typeof computeLayout>>, id: string): 
 }
 
 describe("layout", () => {
-  it("keeps an uncle and his niece in different generations", () => {
+  it("keeps an uncle married to his niece on her row, because he is not her ancestor", () => {
     const family = graph(
       [
         person("gf", "male", "1900-01-01"),
@@ -93,10 +93,53 @@ describe("layout", () => {
     );
     family.persons.push(person("dad", "male", "1924-01-01"));
     const generations = assignGenerations(family);
-    expect(generations.get("uncle")).toBe(1);
-    expect(generations.get("niece")).toBe(2);
-    expect(generations.get("baby")).toBe(3);
-    expect(generations.get("niece")).not.toBe(generations.get("uncle"));
+    expect(generations.get("uncle")).toBe(generations.get("niece"));
+    expect(generations.get("mom")).toBeLessThan(generations.get("niece") ?? 0);
+    expect(generations.get("baby")).toBe((generations.get("niece") ?? 0) + 1);
+  });
+
+  it("puts cousin grandparents on the same row when the grandmother has deeper ancestry", async () => {
+    const family = graph(
+      [
+        person("gggf", "male", "1860-01-01"),
+        person("ggm", "female", "1888-01-01"),
+        person("ggf", "male", "1884-01-01"),
+        person("gm", "female", "1912-01-01"),
+        person("gf", "male", "1910-01-01"),
+        person("child", "male", "1940-01-01"),
+      ],
+      [
+        ["gggf", "ggm", null],
+        ["ggm", "gm", "u-gm"],
+        ["ggf", "gf", "u-gf"],
+        ["gm", "child", "u-grandparents"],
+        ["gf", "child", "u-grandparents"],
+      ],
+      [
+        ["u-gm", "ggm", "partner", 0],
+        ["u-grandparents", "gf", "gm", 0],
+      ],
+    );
+    family.persons.push(person("partner", "male", "1886-01-01"));
+    const generations = assignGenerations(family);
+    expect(generations.get("gf")).toBe(generations.get("gm"));
+    expect((generations.get("gm") ?? 0) > (generations.get("ggf") ?? 0)).toBe(true);
+    clearLayoutCache();
+    const layout = await computeLayout(family);
+    expect(layout.positions.gf?.y).toBe(layout.positions.gm?.y);
+    const left = layout.positions.gf!.x < layout.positions.gm!.x ? layout.positions.gf! : layout.positions.gm!;
+    const right = left === layout.positions.gf ? layout.positions.gm! : layout.positions.gf!;
+    expect(right.x - (left.x + left.width)).toBeLessThanOrEqual(28);
+  });
+
+  it("does not merge a spouse who is an ancestor", () => {
+    const family = graph(
+      [person("parent", "male", "1900-01-01"), person("child", "female", "1925-01-01")],
+      [["parent", "child", null]],
+      [["u", "parent", "child", 0]],
+    );
+    const generations = assignGenerations(family);
+    expect(generations.get("parent")).not.toBe(generations.get("child"));
   });
 
   it("groups each spouse's children under that union and draws a collapsed person once", async () => {

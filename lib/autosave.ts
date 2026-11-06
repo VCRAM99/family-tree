@@ -1,4 +1,4 @@
-export type AutosaveStatus = "idle" | "saving" | "saved" | "retry";
+export type AutosaveStatus = "idle" | "saving" | "saved" | "retry" | "unsaved" | "invalid";
 
 export type AutosaveTimers = {
   set: (fn: () => void) => number;
@@ -15,6 +15,7 @@ export type AutosaveController<T> = {
   bindStatus: (onStatus: (status: AutosaveStatus) => void) => void;
   dispose: () => void;
   status: () => AutosaveStatus;
+  setManual: (manual: boolean) => void;
 };
 
 const pendingFlushes = new Set<() => Promise<void>>();
@@ -32,6 +33,7 @@ export function flushAutosaves(): Promise<void> {
 export function createAutosave<T>(options: {
   delayMs?: number;
   delay?: number;
+  manual?: boolean;
   save: (value: T) => Promise<void>;
   onStatus?: (status: AutosaveStatus) => void;
   timers?: AutosaveTimers;
@@ -43,6 +45,7 @@ export function createAutosave<T>(options: {
 
   let save = options.save;
   let onStatus = options.onStatus;
+  let manual = options.manual ?? false;
   let status: AutosaveStatus = "idle";
   let latest: { value: T; save: (value: T) => Promise<void> } | null = null;
   let dirty = false;
@@ -98,6 +101,10 @@ export function createAutosave<T>(options: {
       latest = { value, save };
       dirty = true;
       clearTimer();
+      if (manual) {
+        setStatus("unsaved");
+        return;
+      }
       timer = timers.set(() => {
         timer = null;
         void run();
@@ -120,6 +127,9 @@ export function createAutosave<T>(options: {
       pendingFlushes.delete(flush);
     },
     status: () => status,
+    setManual(next) {
+      manual = next;
+    },
   };
   pendingFlushes.add(flush);
   return controller;

@@ -6,9 +6,9 @@ import { checkPublicTagAction, regenerateShareCodeAction, saveSettingsAction } f
 import { AdminManager, type AdminRow } from "@/components/admin-manager";
 import { Button } from "@/components/button";
 import { Tooltip } from "@/components/tooltip";
-import { useThemePreview } from "@/components/theme-provider";
-import { MAX_NODE_EXTRA_LINES, NODE_EXTRA_FIELDS, type CustomFieldDef, type CustomFieldType } from "@/lib/domain";
-import { PERSON_FIELD_LABELS, PERSON_FIELDS, THEME_IDS, THEME_LABELS, type PersonField, type ThemeId } from "@/lib/themes";
+import { SaveFab } from "@/components/save-fab";
+import type { CustomFieldDef, CustomFieldType } from "@/lib/domain";
+import { PERSON_FIELD_LABELS, PERSON_FIELDS, type PersonField, type ThemeId } from "@/lib/themes";
 
 export type SettingsTree = {
   id: string;
@@ -22,25 +22,14 @@ export type SettingsTree = {
   photosEnabled: boolean;
   hideLivingDetails: boolean;
   notifySuggestions: boolean;
+  autosave: boolean;
   visibleFields: PersonField[];
   theme: ThemeId;
   customFieldDefs: CustomFieldDef[];
   role: "owner" | "admin";
 };
 
-const swatch: Record<ThemeId, [string, string, string, string]> = {
-  system: ["#f6f4f0", "#1c1917", "#3a6ea5", "#c45b7c"],
-  light: ["#f6f4f0", "#1c1917", "#3a6ea5", "#c45b7c"],
-  dark: ["#121110", "#f4f0e8", "#8eb4dd", "#f0a8bf"],
-  papyrus: ["#f3e6c8", "#3a2a1a", "#3d6d8a", "#a85a6a"],
-  "dark-paper": ["#16130f", "#f3ead7", "#7ea4c8", "#e09aaf"],
-  "sepia-archive": ["#f4efe4", "#3e3426", "#4d6480", "#8d5a66"],
-  blueprint: ["#0d2744", "#e7f0ff", "#8ec5ff", "#f3b4c8"],
-  "sage-botanical": ["#eef2e6", "#243026", "#3e6f8a", "#a85d78"],
-};
-
 export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins?: AdminRow[] }) {
-  const setPreview = useThemePreview();
   const isOwner = tree.role === "owner";
   const [name, setName] = useState(tree.name);
   const [description, setDescription] = useState(tree.description ?? "");
@@ -55,16 +44,12 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
   const [photosEnabled, setPhotosEnabled] = useState(tree.photosEnabled);
   const [hideLivingDetails, setHideLivingDetails] = useState(tree.hideLivingDetails);
   const [notifySuggestions, setNotifySuggestions] = useState(tree.notifySuggestions);
+  const [autosave, setAutosave] = useState(tree.autosave);
   const [visibleFields, setVisibleFields] = useState<PersonField[]>(tree.visibleFields);
-  const [theme, setTheme] = useState<ThemeId>(tree.theme);
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>(tree.customFieldDefs);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    return () => setPreview(null);
-  }, [setPreview]);
 
   useEffect(() => {
     if (!isOwner || visibility !== "public") return;
@@ -87,18 +72,35 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
   }
 
   function toggleField(field: PersonField) {
+    setSaved(false);
     setVisibleFields((current) => {
       if (current.includes(field)) return current.filter((item) => item !== field);
-      const extra = NODE_EXTRA_FIELDS.includes(field as (typeof NODE_EXTRA_FIELDS)[number]);
-      const extraCount = current.filter((item) => NODE_EXTRA_FIELDS.includes(item as (typeof NODE_EXTRA_FIELDS)[number])).length;
-      if (extra && extraCount >= MAX_NODE_EXTRA_LINES) return current;
+      if (current.length >= 2) return current;
       return [...current, field];
     });
   }
 
+  const signature = JSON.stringify({
+    name,
+    description,
+    visibility,
+    publicTag,
+    allowSuggestions,
+    socialsEnabled,
+    photosEnabled,
+    hideLivingDetails,
+    notifySuggestions,
+    autosave,
+    visibleFields,
+    customFieldDefs,
+  });
+  const [clean, setClean] = useState(signature);
+  const dirty = signature !== clean;
+
   return (
     <form
-      className="mx-auto grid w-full max-w-5xl gap-12 px-6 pb-24 sm:px-10 lg:grid-cols-[minmax(0,1fr)_18rem]"
+      id="tree-settings"
+      className="mx-auto w-full max-w-3xl px-6 pb-28 sm:px-10"
       onSubmit={(event) => {
         event.preventDefault();
         setError(null);
@@ -114,12 +116,16 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
             photosEnabled,
             hideLivingDetails,
             notifySuggestions,
+            autosave,
             visibleFields,
-            theme,
+            theme: tree.theme,
             customFieldDefs,
           });
           if (result.error) setError(result.error);
-          else setSaved(true);
+          else {
+            setClean(signature);
+            setSaved(true);
+          }
         });
       }}
     >
@@ -179,6 +185,7 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
           ) : null}
         </section>
 
+        {visibility === "unlisted" ? (
         <section className="mt-12">
           <h2 className="font-display text-3xl">Share code</h2>
           <p className="mt-2 font-mono text-2xl tracking-[0.3em]">{shareCode}</p>
@@ -210,6 +217,7 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
             </Button>
           </div>
         </section>
+        ) : null}
 
         <section className="mt-12 flex flex-col gap-3">
           <h2 className="font-display text-3xl">Permissions</h2>
@@ -218,6 +226,7 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
           <Toggle label="Photos" tooltip="Allow photos on people in this tree" checked={photosEnabled} onChange={setPhotosEnabled} />
           <Toggle label="Hide living people’s details" tooltip="Keep contact and location details off public views of living people" checked={hideLivingDetails} onChange={setHideLivingDetails} />
           <Toggle label="Email me about suggestions" tooltip="Send the owner an email when someone suggests a change" checked={notifySuggestions} onChange={setNotifySuggestions} />
+          <Toggle label="Autosave" tooltip="Save edits as you type. Turn this off to save with the button." checked={autosave} onChange={setAutosave} />
         </section>
 
         {isOwner ? <AdminManager treeId={tree.id} admins={admins} /> : null}
@@ -228,18 +237,20 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
             The tree card always shows the name and years. Choose at most two extra lines, such as a place or an occupation.
           </p>
           <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-            {PERSON_FIELDS.map((field) => (
-              <li key={field}>
-                <label className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={visibleFields.includes(field)}
-                    onChange={() => toggleField(field)}
-                  />
-                  {PERSON_FIELD_LABELS[field]}
-                </label>
-              </li>
-            ))}
+            {PERSON_FIELDS.map((field) => {
+              const checked = visibleFields.includes(field);
+              const locked = !checked && visibleFields.length >= 2;
+              return (
+                <li key={field}>
+                  <Tooltip content={locked ? "Only two fields can show on a card" : PERSON_FIELD_LABELS[field]}>
+                    <label className={`flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-sm ${locked ? "opacity-40" : ""}`}>
+                      <input type="checkbox" checked={checked} disabled={locked} onChange={() => toggleField(field)} />
+                      {PERSON_FIELD_LABELS[field]}
+                    </label>
+                  </Tooltip>
+                </li>
+              );
+            })}
           </ul>
         </section>
 
@@ -331,40 +342,16 @@ export function SettingsForm({ tree, admins = [] }: { tree: SettingsTree; admins
         ) : null}
 
         {error ? <p className="mt-8 text-sm text-danger">{error}</p> : null}
-        {saved ? <p className="mt-8 text-sm text-muted">Saved.</p> : null}
-        <Button tooltip="Save visibility, fields, and theme" type="submit" className="mt-6" disabled={pending}>
-          {pending ? "Saving" : "Save settings"}
-        </Button>
       </div>
-
-      <aside className="lg:pt-28">
-        <h2 className="font-display text-3xl">Theme</h2>
-        <p className="mt-2 text-sm text-muted">The tree’s theme replaces the system appearance while you are inside it.</p>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          {THEME_IDS.map((option) => {
-            const [background, ink, father, mother] = swatch[option];
-            return (
-              <Button
-                key={option}
-                tooltip={`Preview the ${THEME_LABELS[option]} theme`}
-                variant="ghost"
-                className={`h-auto w-full flex-col items-stretch rounded-2xl border px-3 py-3 ${theme === option ? "border-accent" : "border-border"}`}
-                onClick={() => {
-                  setTheme(option);
-                  setPreview(option);
-                }}
-              >
-                <span className="flex h-12 overflow-hidden rounded-xl" style={{ background }}>
-                  <span className="m-2 h-3 w-3 rounded-full" style={{ background: father }} />
-                  <span className="m-2 h-3 w-3 rounded-full" style={{ background: mother }} />
-                  <span className="m-2 ml-auto h-3 w-8 rounded-full" style={{ background: ink }} />
-                </span>
-                <span className="mt-2 text-left text-xs text-text">{THEME_LABELS[option]}</span>
-              </Button>
-            );
-          })}
-        </div>
-      </aside>
+      <SaveFab
+        icon={pending ? "spinner" : saved && !dirty ? "check" : "floppy"}
+        tooltip={dirty ? "Save settings" : "Nothing to save"}
+        disabled={!dirty || pending}
+        onClick={() => {
+          const form = document.getElementById("tree-settings") as HTMLFormElement | null;
+          form?.requestSubmit();
+        }}
+      />
     </form>
   );
 }

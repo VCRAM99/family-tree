@@ -26,6 +26,7 @@ export function TextField({
   validate,
   onStatus,
   autoFocus = false,
+  autosave = true,
 }: {
   label: string;
   value: string;
@@ -36,12 +37,13 @@ export function TextField({
   validate?: (value: string) => string | null;
   onSave: (value: string) => Promise<void>;
   onStatus?: (status: AutosaveStatus) => void;
+  autosave?: boolean;
 }) {
   const [local, setLocal] = useState(value);
   const [seen, setSeen] = useState(value);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { status, push, retry } = useAutosave(onSave);
+  const { status, push, retry } = useAutosave(onSave, 600, !autosave);
   if (value !== seen) {
     setSeen(value);
     if (!dirty || value === local) {
@@ -69,7 +71,11 @@ export function TextField({
     setLocal(next);
     const message = validate?.(next) ?? null;
     setError(message);
-    if (!message) push(next);
+    if (message) {
+      onStatus?.("invalid");
+      return;
+    }
+    push(next);
   }
 
   const control = multiline ? (
@@ -113,6 +119,7 @@ export function SelectField({
   options,
   onSave,
   onStatus,
+  autosave = true,
 }: {
   label: string;
   value: string;
@@ -120,11 +127,12 @@ export function SelectField({
   options: { value: string; label: string }[];
   onSave: (value: string) => Promise<void>;
   onStatus?: (status: AutosaveStatus) => void;
+  autosave?: boolean;
 }) {
   const [local, setLocal] = useState(value);
   const [seen, setSeen] = useState(value);
   const [dirty, setDirty] = useState(false);
-  const { status, push, retry } = useAutosave(onSave);
+  const { status, push, retry } = useAutosave(onSave, 600, !autosave);
   if (value !== seen) {
     setSeen(value);
     if (!dirty || value === local) {

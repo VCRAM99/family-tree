@@ -24,13 +24,22 @@ export function TopBar({ user, suggestions }: { user: SessionUser; suggestions?:
           </Tooltip>
         ) : null}
         <Tooltip content="Account settings" side="bottom">
-          <Link href="/account" className="hidden h-11 items-center rounded-full px-3 text-sm text-muted sm:inline-flex">
-            {user.name}
+          <Link href="/account" className="inline-flex h-11 items-center gap-2 rounded-full px-3 text-sm text-text">
+            <span>{user.name}</span>
+            <ProfileIcon />
           </Link>
         </Tooltip>
-        <p className="hidden text-sm text-muted lg:block">{user.email}</p>
         <SignOutButton />
       </div>
     </header>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <circle cx="9" cy="6.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M4 15c.8-2.4 2.6-3.5 5-3.5s4.2 1.1 5 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
   );
 }

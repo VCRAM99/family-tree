@@ -63,7 +63,7 @@ export function SuggestPanel({
   }
 
   return (
-    <section className="rounded-[2rem] border border-border bg-surface p-5">
+    <section className="rounded-4xl border border-border bg-surface p-5">
       <h2 className="font-display text-3xl">Suggestions</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">Propose a change. An admin decides whether it becomes part of the tree.</p>
       {!signedIn ? (

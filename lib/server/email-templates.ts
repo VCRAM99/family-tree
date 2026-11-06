@@ -19,7 +19,7 @@ export function brandedEmail(input: {
     .filter(Boolean)
     .join("\n\n");
   const action = input.action
-    ? `<p style="margin:28px 0 0"><a href="${escapeHtml(input.action.href)}" style="display:inline-block;background:#2c4a3e;color:#fffcf8;text-decoration:none;border-radius:999px;padding:12px 22px;font-size:14px">${escapeHtml(input.action.label)}</a></p><p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#6f6a63;word-break:break-all">${escapeHtml(input.action.href)}</p>`
+    ? `<p style="margin:28px 0 0"><a href="${escapeHtml(input.action.href)}" style="display:inline-block;background:#2c4a3e;color:#fffcf8;text-decoration:none;border-radius:999px;padding:12px 22px;font-size:14px">${escapeHtml(input.action.label)}</a></p><p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#6f6a63">Button not working? <a href="${escapeHtml(input.action.href)}" style="color:#2c4a3e">Open this link</a></p>`
     : "";
   const paragraphs = input.paragraphs
     .map((paragraph) => `<p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#1c1917">${escapeHtml(paragraph)}</p>`)

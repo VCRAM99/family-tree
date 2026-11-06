@@ -1,4 +1,4 @@
-import { childrenGrouped, createGraphIndex, effectiveUnionId, spouses, type GraphIndex, type GraphPerson, type ParentKind, type TreeGraph } from "@/lib/family-graph";
+import { childrenGrouped, createGraphIndex, effectiveUnionId, orderingYear, spouses, type GraphIndex, type GraphPerson, type ParentKind, type TreeGraph } from "@/lib/family-graph";
 
 import { assignGenerations } from "./generations";
 import { JUNCTION_SIZE, PERSON_HEIGHT, PERSON_WIDTH, type LayoutEdge } from "./types";
@@ -186,7 +186,7 @@ function orderGenerations(index: GraphIndex, generations: Map<string, number>): 
     const seeds: string[] = [];
     const seen = new Set<string>();
     if (generation === 0) {
-      for (const person of [...pool].sort(byBirth)) seeds.push(person.id);
+      for (const person of [...pool].sort((a, b) => byBirth(index, a, b))) seeds.push(person.id);
     } else {
       for (const parentId of ordered.get(generation - 1) ?? []) {
         for (const group of childrenGrouped(index, parentId)) {
@@ -197,7 +197,7 @@ function orderGenerations(index: GraphIndex, generations: Map<string, number>): 
           }
         }
       }
-      for (const person of [...pool].sort(byBirth)) {
+      for (const person of [...pool].sort((a, b) => byBirth(index, a, b))) {
         if (seen.has(person.id)) continue;
         seeds.push(person.id);
       }
@@ -246,11 +246,16 @@ function clusterSpouses(ids: string[], index: GraphIndex, generations: Map<strin
   return ordered;
 }
 
-function byBirth(a: GraphPerson | undefined, b: GraphPerson | undefined): number {
+function byBirth(index: GraphIndex, a: GraphPerson | undefined, b: GraphPerson | undefined): number {
   if (!a || !b) return 0;
   if (a.birthDate && b.birthDate && a.birthDate !== b.birthDate) return a.birthDate < b.birthDate ? -1 : 1;
-  if (a.birthDate && !b.birthDate) return -1;
-  if (!a.birthDate && b.birthDate) return 1;
+  if (!(a.birthDate && b.birthDate)) {
+    const left = orderingYear(index, a.id);
+    const right = orderingYear(index, b.id);
+    if (left !== null && right !== null && left !== right) return left - right;
+    if (left !== null && right === null) return -1;
+    if (left === null && right !== null) return 1;
+  }
   return a.id.localeCompare(b.id);
 }
 

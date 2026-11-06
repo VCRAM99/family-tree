@@ -178,6 +178,7 @@ function baseSettings(tag: string): SettingsInput {
     notifySuggestions: false,
     visibleFields: ["bio", "email"],
     theme: "sage-botanical",
+    autosave: true,
     customFieldDefs: [],
   };
 }

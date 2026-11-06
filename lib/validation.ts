@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { PERSON_FIELDS, THEME_IDS, type CustomFieldDef, type CustomFieldValues, type PersonField, type ThemeId } from "@/lib/domain";
-import { isValidPublicTag, normalizePublicTag } from "@/lib/public-tag";
+import { isReservedSlug, isValidPublicTag, normalizePublicTag } from "@/lib/public-tag";
 
 export const visibilitySchema = z.enum(["private", "unlisted", "public"]);
 export const themeSchema = z.enum(THEME_IDS);
@@ -41,8 +41,9 @@ export const settingsSchema = z.object({
   photosEnabled: z.boolean(),
   hideLivingDetails: z.boolean(),
   notifySuggestions: z.boolean(),
-  visibleFields: z.array(personFieldSchema),
+  visibleFields: z.array(personFieldSchema).max(2, "Choose at most two visible fields."),
   theme: themeSchema,
+  autosave: z.boolean().default(true),
   customFieldDefs: z.array(customFieldDefSchema).max(40),
 });
 
@@ -78,6 +79,9 @@ export function emptyToNull(value: string | undefined): string | null {
 
 export function resolvedPublicTag(visibility: z.infer<typeof visibilitySchema>, publicTag: string): string | null {
   const normalized = publicTag.trim() === "" ? null : normalizePublicTag(publicTag);
+  if (normalized && isReservedSlug(normalized)) {
+    throw new Error("That address is reserved.");
+  }
   if (visibility === "public") {
     if (!normalized || !isValidPublicTag(normalized)) {
       throw new Error("A public tree needs a tag of 3–40 letters, numbers, or hyphens.");
@@ -91,7 +95,7 @@ export function resolvedPublicTag(visibility: z.infer<typeof visibilitySchema>, 
 }
 
 export function uniqueVisibleFields(fields: PersonField[]): PersonField[] {
-  return [...new Set(fields)];
+  return [...new Set(fields)].slice(0, 2);
 }
 
 const phonePattern = /^\+?[0-9][0-9\s().-]{5,18}[0-9]$/;

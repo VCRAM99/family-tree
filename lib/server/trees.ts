@@ -47,6 +47,7 @@ export async function listMyTrees(userId: string): Promise<TreeListItem[]> {
       visibility: trees.visibility,
       role: treeAdmins.role,
       shareCode: trees.shareCode,
+      publicTag: trees.publicTag,
       updatedAt: trees.updatedAt,
     })
     .from(treeAdmins)
@@ -61,6 +62,7 @@ export async function listMyTrees(userId: string): Promise<TreeListItem[]> {
       visibility: row.visibility,
       role: row.role,
       shareCode: row.shareCode.trim(),
+      publicTag: row.publicTag,
       updatedAt: row.updatedAt.toISOString(),
     }))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
@@ -208,6 +210,7 @@ export async function updateTreeSettings(userId: string | null, treeId: string, 
         notifySuggestions: parsed.notifySuggestions,
         visibleFields: uniqueVisibleFields(parsed.visibleFields),
         theme: parsed.theme,
+        autosave: parsed.autosave,
         customFieldDefs: parsed.customFieldDefs,
         updatedAt: new Date(),
       })

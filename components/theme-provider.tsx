@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useLayoutEffect, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
 
 import type { ThemeId } from "@/lib/themes";
 
@@ -14,18 +13,21 @@ type ThemeController = {
 const ThemeContext = createContext<ThemeController | null>(null);
 
 export function ThemeRoot({ initialTheme, children }: { initialTheme: ThemeId; children: ReactNode }) {
-  const pathname = usePathname();
-  const [treeTheme, setTreeThemeState] = useState(initialTheme);
+  const [override, setOverride] = useState<ThemeId | null>(null);
+  const [tracked, setTracked] = useState(initialTheme);
   const [preview, setPreview] = useState<ThemeId | null>(null);
-  const onTree = pathname.startsWith("/tree/");
-  const active = preview ?? (onTree ? treeTheme : "system");
+  if (tracked !== initialTheme) {
+    setTracked(initialTheme);
+    setOverride(null);
+  }
+  const active = preview ?? override ?? initialTheme;
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = active;
   }, [active]);
 
   const setTreeTheme = useCallback((theme: ThemeId) => {
-    setTreeThemeState(theme);
+    setOverride(theme);
     setPreview(null);
   }, []);
 
@@ -34,15 +36,8 @@ export function ThemeRoot({ initialTheme, children }: { initialTheme: ThemeId; c
   );
 }
 
-export function PublishTreeTheme({ theme }: { theme: ThemeId }) {
-  const setTreeTheme = useContext(ThemeContext)?.setTreeTheme;
-  useLayoutEffect(() => {
-    setTreeTheme?.(theme);
-  }, [setTreeTheme, theme]);
-  return null;
+export function useAccountTheme(): (theme: ThemeId) => void {
+  const controller = useContext(ThemeContext);
+  return controller?.setTreeTheme ?? (() => {});
 }
 
-export function useThemePreview(): (theme: ThemeId | null) => void {
-  const controller = useContext(ThemeContext);
-  return controller?.setPreview ?? (() => {});
-}

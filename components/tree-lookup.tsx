@@ -56,7 +56,7 @@ export function TreeLookup() {
               <button
                 type="button"
                 className="flex w-full items-baseline justify-between rounded-2xl px-3 py-2 text-left hover:bg-surface"
-                onClick={() => router.push(`/t/${match.publicTag}`)}
+                onClick={() => router.push(`/${match.publicTag}`)}
               >
                 <span>{match.name}</span>
                 <span className="text-xs text-muted">{match.publicTag}</span>
